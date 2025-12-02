@@ -1,0 +1,224 @@
+import "https://deno.land/x/xhr@0.1.0/mod.ts";
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+};
+
+const VERCEL_API_TOKEN = Deno.env.get('VERCEL_API_TOKEN');
+const VERCEL_PROJECT_ID = Deno.env.get('VERCEL_PROJECT_ID');
+const VERCEL_TEAM_ID = Deno.env.get('VERCEL_TEAM_ID');
+
+const getTeamParam = () => VERCEL_TEAM_ID ? `?teamId=${VERCEL_TEAM_ID}` : '';
+
+serve(async (req) => {
+  // Handle CORS preflight requests
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { headers: corsHeaders });
+  }
+
+  try {
+    const { action, domain } = await req.json();
+    console.log(`[manage-vercel-domain] Action: ${action}, Domain: ${domain}`);
+
+    if (!VERCEL_API_TOKEN || !VERCEL_PROJECT_ID) {
+      console.error('[manage-vercel-domain] Missing Vercel credentials');
+      return new Response(JSON.stringify({ 
+        error: 'Vercel API nicht konfiguriert. Bitte VERCEL_API_TOKEN und VERCEL_PROJECT_ID setzen.' 
+      }), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    const headers = {
+      'Authorization': `Bearer ${VERCEL_API_TOKEN}`,
+      'Content-Type': 'application/json',
+    };
+
+    // Add domain to Vercel project
+    if (action === 'add') {
+      console.log(`[manage-vercel-domain] Adding domain ${domain} to project ${VERCEL_PROJECT_ID}`);
+      
+      const response = await fetch(
+        `https://api.vercel.com/v10/projects/${VERCEL_PROJECT_ID}/domains${getTeamParam()}`,
+        {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({ name: domain }),
+        }
+      );
+
+      const data = await response.json();
+      console.log('[manage-vercel-domain] Add domain response:', JSON.stringify(data));
+
+      if (!response.ok) {
+        // Check if domain already exists
+        if (data.error?.code === 'domain_already_in_use') {
+          return new Response(JSON.stringify({ 
+            error: 'Diese Domain ist bereits bei einem anderen Vercel-Projekt registriert.',
+            code: 'domain_already_in_use'
+          }), {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+        return new Response(JSON.stringify({ 
+          error: data.error?.message || 'Fehler beim Hinzufügen der Domain',
+          details: data 
+        }), {
+          status: response.status,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      return new Response(JSON.stringify({ 
+        success: true, 
+        domain: data,
+        message: 'Domain erfolgreich hinzugefügt'
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // Get domain configuration (DNS records, verification status)
+    if (action === 'get-config') {
+      console.log(`[manage-vercel-domain] Getting config for domain ${domain}`);
+      
+      const response = await fetch(
+        `https://api.vercel.com/v9/projects/${VERCEL_PROJECT_ID}/domains/${domain}${getTeamParam()}`,
+        {
+          method: 'GET',
+          headers,
+        }
+      );
+
+      const data = await response.json();
+      console.log('[manage-vercel-domain] Get config response:', JSON.stringify(data));
+
+      if (!response.ok) {
+        return new Response(JSON.stringify({ 
+          error: data.error?.message || 'Domain nicht gefunden',
+          details: data 
+        }), {
+          status: response.status,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      // Build DNS configuration instructions
+      const dnsConfig = {
+        domain: data.name,
+        verified: data.verified,
+        configured: data.verification?.length === 0,
+        verification: data.verification || [],
+        // Standard Vercel DNS records
+        records: [
+          {
+            type: 'A',
+            name: data.name,
+            value: '76.76.21.21',
+            description: 'Vercel A Record'
+          },
+          {
+            type: 'CNAME',
+            name: `www.${data.name}`,
+            value: 'cname.vercel-dns.com',
+            description: 'Vercel CNAME für www'
+          }
+        ]
+      };
+
+      // Add verification TXT record if needed
+      if (data.verification && data.verification.length > 0) {
+        data.verification.forEach((v: any) => {
+          if (v.type === 'TXT') {
+            dnsConfig.records.push({
+              type: 'TXT',
+              name: v.domain,
+              value: v.value,
+              description: 'Vercel Verification'
+            });
+          }
+        });
+      }
+
+      return new Response(JSON.stringify({ 
+        success: true, 
+        config: dnsConfig,
+        raw: data
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // Verify domain
+    if (action === 'verify') {
+      console.log(`[manage-vercel-domain] Verifying domain ${domain}`);
+      
+      const response = await fetch(
+        `https://api.vercel.com/v9/projects/${VERCEL_PROJECT_ID}/domains/${domain}/verify${getTeamParam()}`,
+        {
+          method: 'POST',
+          headers,
+        }
+      );
+
+      const data = await response.json();
+      console.log('[manage-vercel-domain] Verify response:', JSON.stringify(data));
+
+      return new Response(JSON.stringify({ 
+        success: response.ok, 
+        verified: data.verified,
+        data
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // Remove domain
+    if (action === 'remove') {
+      console.log(`[manage-vercel-domain] Removing domain ${domain}`);
+      
+      const response = await fetch(
+        `https://api.vercel.com/v9/projects/${VERCEL_PROJECT_ID}/domains/${domain}${getTeamParam()}`,
+        {
+          method: 'DELETE',
+          headers,
+        }
+      );
+
+      if (!response.ok) {
+        const data = await response.json();
+        return new Response(JSON.stringify({ 
+          error: data.error?.message || 'Fehler beim Entfernen der Domain',
+          details: data 
+        }), {
+          status: response.status,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      return new Response(JSON.stringify({ 
+        success: true, 
+        message: 'Domain erfolgreich entfernt'
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    return new Response(JSON.stringify({ error: 'Unbekannte Aktion' }), {
+      status: 400,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : 'Unbekannter Fehler';
+    console.error('[manage-vercel-domain] Error:', error);
+    return new Response(JSON.stringify({ error: errorMessage }), {
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+});
