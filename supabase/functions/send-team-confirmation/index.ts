@@ -44,6 +44,19 @@ serve(async (req) => {
 
     console.log("Team loaded:", team.name);
 
+    // Fetch organizer profile
+    const { data: organizer, error: organizerError } = await supabase
+      .from("profiles")
+      .select("*")
+      .eq("id", team.tournament.organizer_id)
+      .single();
+
+    if (organizerError) {
+      console.error("Organizer fetch error:", organizerError);
+    }
+
+    console.log("Organizer loaded:", organizer?.full_name || "Unknown");
+
     // Generate registration URL
     const registrationUrl = `${supabaseUrl.replace('.supabase.co', '.lovable.app')}/teams/${team.id}/register/${team.registration_token}`;
 
@@ -60,99 +73,36 @@ serve(async (req) => {
       },
     });
 
-    // Email content
+    // Email content - using single line HTML to avoid =20 encoding issues
     const emailSubject = `Bestätigung: Team-Anmeldung ${team.name}`;
-    const emailHtml = `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <meta charset="utf-8">
-        <style>
-          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-          .header { background: linear-gradient(135deg, #f97316 0%, #dc2626 100%); color: white; padding: 30px; text-align: center; border-radius: 8px 8px 0 0; }
-          .content { background: #f9fafb; padding: 30px; border-radius: 0 0 8px 8px; }
-          .info-box { background: white; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #f97316; }
-          .info-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #e5e7eb; }
-          .info-label { font-weight: bold; color: #6b7280; }
-          .link-box { background: #fffbeb; border: 2px solid #fbbf24; padding: 20px; border-radius: 8px; margin: 20px 0; }
-          .button { display: inline-block; padding: 12px 24px; background: #f97316; color: white; text-decoration: none; border-radius: 6px; font-weight: bold; margin: 10px 0; }
-          .payment-info { background: #fef3c7; padding: 15px; border-radius: 6px; margin: 15px 0; }
-          ul { padding-left: 20px; }
-          li { margin: 8px 0; }
-        </style>
-      </head>
-      <body>
-        <div class="container">
-          <div class="header">
-            <h1 style="margin: 0;">🎉 Anmeldung erfolgreich!</h1>
-          </div>
-          <div class="content">
-            <p>Hallo ${team.contact_name},</p>
-            <p>Dein Team <strong>"${team.name}"</strong> wurde erfolgreich für das Turnier registriert!</p>
+    
+    // Build payment info section
+    let paymentInfoHtml = '';
+    if (team.payment_method === 'qr_invoice') {
+      paymentInfoHtml = '<div class="payment-info"><h3 style="margin-top: 0;">💳 Zahlungsinformation</h3><p><strong>Die QR-Rechnung ist als Anhang beigefügt.</strong></p><ul><li>Startgeld: CHF ' + team.tournament.entry_fee.toFixed(2) + '</li><li>Bitte bezahle bis zum Anmeldeschluss</li><li>Nach Zahlungseingang erhältst du eine Bestätigung</li></ul></div>';
+    } else if (team.payment_method === 'manual') {
+      paymentInfoHtml = '<div class="payment-info"><h3 style="margin-top: 0;">💵 Zahlungsinformation</h3><p><strong>Barzahlung vor Ort:</strong> CHF ' + team.tournament.entry_fee.toFixed(2) + '</p><p>Bitte bezahle das Startgeld am Turniertag. Die Bestätigung erfolgt durch den Veranstalter.</p></div>';
+    }
 
-            <div class="info-box">
-              <h2 style="margin-top: 0; color: #f97316;">Team-Details</h2>
-              <div class="info-row">
-                <span class="info-label">Team:</span>
-                <span>${team.name}</span>
-              </div>
-              <div class="info-row">
-                <span class="info-label">Turnier:</span>
-                <span>${team.tournament.name}</span>
-              </div>
-              <div class="info-row">
-                <span class="info-label">Kategorie:</span>
-                <span>${team.category.name}</span>
-              </div>
-              <div class="info-row">
-                <span class="info-label">Datum:</span>
-                <span>${new Date(team.tournament.date).toLocaleDateString('de-CH')}</span>
-              </div>
-              <div class="info-row">
-                <span class="info-label">Ort:</span>
-                <span>${team.tournament.location}</span>
-              </div>
-            </div>
-
-            ${team.payment_method === 'qr_invoice' ? `
-              <div class="payment-info">
-                <h3 style="margin-top: 0;">💳 Zahlungsinformation</h3>
-                <p><strong>Die QR-Rechnung ist als Anhang beigefügt.</strong></p>
-                <ul>
-                  <li>Startgeld: CHF ${team.tournament.entry_fee.toFixed(2)}</li>
-                  <li>Bitte bezahle bis zum Anmeldeschluss</li>
-                  <li>Nach Zahlungseingang erhältst du eine Bestätigung</li>
-                </ul>
-              </div>
-            ` : team.payment_method === 'manual' ? `
-              <div class="payment-info">
-                <h3 style="margin-top: 0;">💵 Zahlungsinformation</h3>
-                <p>Barzahlung vor Ort: CHF ${team.tournament.entry_fee.toFixed(2)}</p>
-                <p>Bitte bezahle das Startgeld am Turniertag. Die Bestätigung erfolgt durch den Veranstalter.</p>
-              </div>
-            ` : ''}
-
-            <div class="link-box">
-              <h3 style="margin-top: 0; color: #92400e;">👥 Spieler-Registrierung</h3>
-              <p>Teile diesen Link mit deinen Teammitgliedern, damit sie sich registrieren können:</p>
-              <a href="${registrationUrl}" class="button">Zur Spieler-Registrierung</a>
-              <p style="font-size: 12px; color: #6b7280; word-break: break-all; margin-top: 15px;">${registrationUrl}</p>
-              <p style="margin-top: 15px;"><strong>Wichtig:</strong></p>
-              <ul style="margin: 5px 0;">
-                <li>Spieleranzahl: ${team.category.min_players} - ${team.category.max_players} Spieler</li>
-                <li>Max. ${team.category.max_licensed_players} lizenzierte Spieler</li>
-              </ul>
-            </div>
-
-            <p>Bei Fragen erreichst du uns unter <a href="mailto:${Deno.env.get("SMTP_FROM_EMAIL")}">${Deno.env.get("SMTP_FROM_EMAIL")}</a>.</p>
-            <p>Wir freuen uns auf ein tolles Turnier!</p>
-            <p style="margin-top: 30px;">Sportliche Grüsse<br>Das Turnierteam</p>
-          </div>
-        </div>
-      </body>
-      </html>
-    `;
+    // Build organizer info section
+    let organizerInfoHtml = '';
+    if (organizer) {
+      organizerInfoHtml = '<div class="info-box" style="margin-top: 30px;"><h3 style="margin-top: 0; color: #f97316;">📋 Veranstalter-Information</h3>';
+      
+      if (organizer.full_name) {
+        organizerInfoHtml += '<p><strong>Name:</strong> ' + organizer.full_name + '</p>';
+      }
+      if (organizer.organization) {
+        organizerInfoHtml += '<p><strong>Organisation:</strong> ' + organizer.organization + '</p>';
+      }
+      if (organizer.phone) {
+        organizerInfoHtml += '<p><strong>Telefon:</strong> ' + organizer.phone + '</p>';
+      }
+      
+      organizerInfoHtml += '</div>';
+    }
+    
+    const emailHtml = '<!DOCTYPE html><html><head><meta charset="utf-8"><style>body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; } .container { max-width: 600px; margin: 0 auto; padding: 20px; } .header { background: linear-gradient(135deg, #f97316 0%, #dc2626 100%); color: white; padding: 30px; text-align: center; border-radius: 8px 8px 0 0; } .content { background: #f9fafb; padding: 30px; border-radius: 0 0 8px 8px; } .info-box { background: white; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #f97316; } .info-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #e5e7eb; } .info-label { font-weight: bold; color: #6b7280; } .link-box { background: #fffbeb; border: 2px solid #fbbf24; padding: 20px; border-radius: 8px; margin: 20px 0; } .button { display: inline-block; padding: 12px 24px; background: #f97316; color: white; text-decoration: none; border-radius: 6px; font-weight: bold; margin: 10px 0; } .payment-info { background: #fef3c7; padding: 15px; border-radius: 6px; margin: 15px 0; } ul { padding-left: 20px; } li { margin: 8px 0; }</style></head><body><div class="container"><div class="header"><h1 style="margin: 0;">🎉 Anmeldung erfolgreich!</h1></div><div class="content"><p>Hallo ' + team.contact_name + ',</p><p>Dein Team <strong>"' + team.name + '"</strong> wurde erfolgreich für das Turnier registriert!</p><div class="info-box"><h2 style="margin-top: 0; color: #f97316;">Team-Details</h2><div class="info-row"><span class="info-label">Team:</span><span>' + team.name + '</span></div><div class="info-row"><span class="info-label">Turnier:</span><span>' + team.tournament.name + '</span></div><div class="info-row"><span class="info-label">Kategorie:</span><span>' + team.category.name + '</span></div><div class="info-row"><span class="info-label">Datum:</span><span>' + new Date(team.tournament.date).toLocaleDateString('de-CH') + '</span></div><div class="info-row"><span class="info-label">Ort:</span><span>' + team.tournament.location + '</span></div></div>' + paymentInfoHtml + '<div class="link-box"><h3 style="margin-top: 0; color: #92400e;">👥 Spieler-Registrierung</h3><p>Teile diesen Link mit deinen Teammitgliedern, damit sie sich registrieren können:</p><a href="' + registrationUrl + '" class="button">Zur Spieler-Registrierung</a><p style="font-size: 12px; color: #6b7280; word-break: break-all; margin-top: 15px;">' + registrationUrl + '</p><p style="margin-top: 15px;"><strong>Wichtig:</strong></p><ul style="margin: 5px 0;"><li>Spieleranzahl: ' + team.category.min_players + ' - ' + team.category.max_players + ' Spieler</li><li>Max. ' + team.category.max_licensed_players + ' lizenzierte Spieler</li></ul></div>' + organizerInfoHtml + '<p>Bei Fragen erreichst du uns unter <a href="mailto:' + Deno.env.get("SMTP_FROM_EMAIL") + '">' + Deno.env.get("SMTP_FROM_EMAIL") + '</a>.</p><p>Wir freuen uns auf ein tolles Turnier!</p><p style="margin-top: 30px;">Sportliche Grüsse<br>Das Turnierteam</p></div></div></body></html>';
 
     // Prepare email content with optional QR invoice attachment
     let qrAttachment = null;
