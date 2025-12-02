@@ -41,6 +41,7 @@ const TournamentDetail = () => {
   const navigate = useNavigate();
   const [tournament, setTournament] = useState<Tournament | null>(null);
   const [organizerProfile, setOrganizerProfile] = useState<any>(null);
+  const [teams, setTeams] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -76,6 +77,20 @@ const TournamentDetail = () => {
       if (!profileError && profile) {
         setOrganizerProfile(profile);
       }
+    }
+
+    // Load teams
+    const { data: teamsData, error: teamsError } = await supabase
+      .from("teams")
+      .select(`
+        *,
+        category:tournament_categories(name)
+      `)
+      .eq("tournament_id", id)
+      .order("created_at", { ascending: false });
+
+    if (!teamsError && teamsData) {
+      setTeams(teamsData);
     }
     
     setLoading(false);
@@ -212,9 +227,9 @@ const TournamentDetail = () => {
                   <Users className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">0</div>
+                  <div className="text-2xl font-bold">{teams.length}</div>
                   <p className="text-xs text-muted-foreground">
-                    Noch keine Anmeldungen
+                    {teams.filter(t => t.payment_status === 'paid').length} bezahlt
                   </p>
                 </CardContent>
               </Card>
@@ -304,21 +319,81 @@ const TournamentDetail = () => {
           <TabsContent value="teams">
             <Card>
               <CardHeader>
-                <CardTitle>Angemeldete Teams</CardTitle>
+                <CardTitle>Angemeldete Teams ({teams.length})</CardTitle>
                 <CardDescription>
                   Verwalten Sie die Team-Anmeldungen
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="text-center py-12 text-muted-foreground">
-                  <Users className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                  <p>Noch keine Teams angemeldet</p>
-                  {tournament.status === "draft" && (
-                    <p className="text-sm mt-2">
-                      Veröffentlichen Sie das Turnier, um Anmeldungen zu ermöglichen
-                    </p>
-                  )}
-                </div>
+                {teams.length === 0 ? (
+                  <div className="text-center py-12 text-muted-foreground">
+                    <Users className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                    <p>Noch keine Teams angemeldet</p>
+                    {tournament.status === "draft" && (
+                      <p className="text-sm mt-2">
+                        Veröffentlichen Sie das Turnier, um Anmeldungen zu ermöglichen
+                      </p>
+                    )}
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {teams.map((team) => (
+                      <Card key={team.id}>
+                        <CardContent className="pt-6">
+                          <div className="flex items-start justify-between">
+                            <div className="space-y-1 flex-1">
+                              <div className="flex items-center gap-3">
+                                <h3 className="text-lg font-semibold">{team.name}</h3>
+                                <Badge variant={team.payment_status === 'paid' ? 'default' : 'secondary'}>
+                                  {team.payment_status === 'paid' ? 'Bezahlt' : 'Ausstehend'}
+                                </Badge>
+                                <Badge variant="outline">
+                                  {team.category?.name || 'Keine Kategorie'}
+                                </Badge>
+                              </div>
+                              <div className="text-sm text-muted-foreground space-y-1">
+                                <p><strong>Kontakt:</strong> {team.contact_name}</p>
+                                <p><strong>E-Mail:</strong> {team.contact_email}</p>
+                                {team.contact_phone && <p><strong>Telefon:</strong> {team.contact_phone}</p>}
+                                <p><strong>Zahlungsmethode:</strong> {
+                                  team.payment_method === 'stripe' ? 'Online (Stripe)' :
+                                  team.payment_method === 'qr_invoice' ? 'QR-Rechnung' :
+                                  team.payment_method === 'manual' ? 'Bar vor Ort' : 'Unbekannt'
+                                }</p>
+                                <p className="text-xs">
+                                  <strong>Registriert:</strong> {new Date(team.created_at).toLocaleString('de-CH')}
+                                </p>
+                              </div>
+                            </div>
+                            <div className="flex gap-2">
+                              {team.payment_status === 'pending' && (
+                                <Button
+                                  size="sm"
+                                  variant="default"
+                                  onClick={async () => {
+                                    const { error } = await supabase
+                                      .from('teams')
+                                      .update({ payment_status: 'paid' })
+                                      .eq('id', team.id);
+                                    
+                                    if (error) {
+                                      toast.error('Fehler beim Aktualisieren');
+                                    } else {
+                                      toast.success('Zahlung bestätigt');
+                                      loadTournament();
+                                    }
+                                  }}
+                                >
+                                  Zahlung bestätigen
+                                </Button>
+                              )}
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>
