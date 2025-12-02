@@ -1,8 +1,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
-import PDFDocument from "https://esm.sh/pdfkit@0.15.0?target=deno";
-import { SwissQRBill } from "https://esm.sh/swissqrbill@4.2.1/pdf?target=deno&deps=pdfkit@0.15.0";
-import { mm2pt } from "https://esm.sh/swissqrbill@4.2.1/utils?target=deno";
+import { PDFDocument, rgb, StandardFonts } from "https://esm.sh/pdf-lib@1.17.1";
+import QRCode from "https://esm.sh/qrcode@1.5.3";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -60,6 +59,63 @@ function formatDate(dateStr: string): string {
     month: 'long', 
     year: 'numeric' 
   });
+}
+
+// Generate Swiss QR Code payload
+function generateSwissQRPayload(data: {
+  account: string;
+  creditorName: string;
+  creditorAddress: string;
+  creditorZip: string;
+  creditorCity: string;
+  creditorCountry: string;
+  amount: number;
+  currency: string;
+  debtorName: string;
+  reference: string;
+  message: string;
+}): string {
+  const lines = [
+    "SPC",                          // QRType
+    "0200",                         // Version
+    "1",                            // Coding Type (UTF-8)
+    data.account.replace(/\s/g, ''), // IBAN
+    "S",                            // Address Type (S = structured)
+    data.creditorName,              // Creditor Name
+    data.creditorAddress,           // Street
+    "",                             // Building Number (optional)
+    data.creditorZip,               // Postal Code
+    data.creditorCity,              // City
+    data.creditorCountry,           // Country
+    "",                             // Ultimate Creditor (empty)
+    "",                             // UC Address Type
+    "",                             // UC Name
+    "",                             // UC Street
+    "",                             // UC Building
+    "",                             // UC Postal
+    "",                             // UC City
+    "",                             // UC Country
+    data.amount.toFixed(2),         // Amount
+    data.currency,                  // Currency
+    "S",                            // Debtor Address Type
+    data.debtorName,                // Debtor Name
+    "",                             // Debtor Street
+    "",                             // Debtor Building
+    "",                             // Debtor Postal
+    "",                             // Debtor City
+    "CH",                           // Debtor Country
+    "QRR",                          // Reference Type (QR Reference)
+    data.reference,                 // Reference
+    data.message,                   // Additional Information
+    "EPD",                          // Trailer
+    ""                              // Billing Information
+  ];
+  return lines.join("\n");
+}
+
+// Convert mm to PDF points (1mm = 2.835 points)
+function mm2pt(mm: number): number {
+  return mm * 2.835;
 }
 
 serve(async (req) => {
@@ -127,161 +183,358 @@ serve(async (req) => {
     // Get entry fee from category or tournament
     const entryFee = team.category?.entry_fee || team.tournament.entry_fee || 0;
 
-    // Prepare data for SwissQRBill (following the library's expected format)
-    const qrBillData = {
-      amount: entryFee,
-      creditor: {
-        account: creditorAccount.replace(/\s/g, ''),
-        name: creditorName,
-        address: creditorAddress,
-        buildingNumber: creditorBuildingNumber ? String(creditorBuildingNumber) : undefined,
-        zip: parseInt(creditorZip) || 0,
-        city: creditorCity,
-        country: creditorCountry
-      },
-      currency: "CHF" as const,
-      debtor: {
-        name: team.contact_name,
-        address: "",
-        buildingNumber: undefined,
-        zip: 0,
-        city: "",
-        country: "CH"
-      },
-      reference: referenceNumber,
-      message: `Startgeld ${team.tournament.name} - Team ${team.name}`
+    // Create PDF document
+    const pdfDoc = await PDFDocument.create();
+    const page = pdfDoc.addPage([595.28, 841.89]); // A4 size in points
+    
+    const helvetica = await pdfDoc.embedFont(StandardFonts.Helvetica);
+    const helveticaBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+
+    const { height } = page.getSize();
+
+    // Helper function to draw text (PDF coordinates start from bottom)
+    const drawText = (text: string, x: number, y: number, options: { font?: typeof helvetica; size?: number; color?: ReturnType<typeof rgb> } = {}) => {
+      page.drawText(text, {
+        x: mm2pt(x),
+        y: height - mm2pt(y),
+        size: options.size || 11,
+        font: options.font || helvetica,
+        color: options.color || rgb(0, 0, 0),
+      });
     };
 
-    console.log("Creating PDF with SwissQRBill...");
-
-    // Create PDF document following the guide
-    const pdf = new PDFDocument({ size: "A4" });
-
-    // Collect PDF chunks
-    const chunks: Uint8Array[] = [];
+    // === Invoice Header ===
     
-    pdf.on('data', (chunk: Uint8Array) => {
-      chunks.push(chunk);
-    });
-
-    // === Add content to PDF following the guide ===
-
     // Creditor address (top left)
-    pdf.fontSize(12);
-    pdf.fillColor("black");
-    pdf.font("Helvetica");
-    pdf.text(
-      `${creditorName}\n${creditorAddress}${creditorBuildingNumber ? ' ' + creditorBuildingNumber : ''}\n${creditorZip} ${creditorCity}`,
-      mm2pt(20),
-      mm2pt(35),
-      {
-        align: "left",
-        height: mm2pt(50),
-        width: mm2pt(100)
-      }
-    );
+    const creditorFullAddress = `${creditorName}\n${creditorAddress}${creditorBuildingNumber ? ' ' + creditorBuildingNumber : ''}\n${creditorZip} ${creditorCity}`;
+    let yPos = 35;
+    for (const line of creditorFullAddress.split('\n')) {
+      drawText(line, 20, yPos, { size: 12 });
+      yPos += 5;
+    }
 
     // Debtor address (top right)
-    pdf.fontSize(12);
-    pdf.font("Helvetica");
-    pdf.text(
-      `${team.contact_name}\n${team.contact_email}`,
-      mm2pt(130),
-      mm2pt(60),
-      {
-        align: "left",
-        height: mm2pt(50),
-        width: mm2pt(70)
-      }
-    );
+    drawText(team.contact_name, 130, 60, { size: 12 });
+    drawText(team.contact_email, 130, 66, { size: 11 });
 
-    // Title and date
-    pdf.fontSize(14);
-    pdf.font("Helvetica-Bold");
-    pdf.text(
-      `Rechnung - Turnieranmeldung`,
-      mm2pt(20),
-      mm2pt(100),
-      {
-        align: "left",
-        width: mm2pt(170)
-      }
-    );
+    // Title
+    drawText("Rechnung - Turnieranmeldung", 20, 100, { font: helveticaBold, size: 14 });
 
+    // Date
     const today = new Date();
-    pdf.fontSize(11);
-    pdf.font("Helvetica");
-    pdf.text(
-      `${creditorCity}, ${today.getDate()}.${today.getMonth() + 1}.${today.getFullYear()}`,
-      {
-        align: "right",
-        width: mm2pt(170)
-      }
-    );
+    const dateStr = `${creditorCity}, ${today.getDate()}.${today.getMonth() + 1}.${today.getFullYear()}`;
+    drawText(dateStr, 140, 100, { size: 11 });
 
-    // Tournament info section
-    pdf.moveDown(2);
-    pdf.fontSize(12);
-    pdf.font("Helvetica-Bold");
-    pdf.text("Turnier", mm2pt(20), mm2pt(120));
-    
-    pdf.font("Helvetica");
-    pdf.fontSize(11);
-    pdf.text(`${team.tournament.name}`, mm2pt(20), mm2pt(128));
-    pdf.text(`Datum: ${formatDate(team.tournament.date)}`, mm2pt(20), mm2pt(135));
-    pdf.text(`Ort: ${team.tournament.location}`, mm2pt(20), mm2pt(142));
+    // Tournament info
+    drawText("Turnier", 20, 120, { font: helveticaBold, size: 12 });
+    drawText(team.tournament.name, 20, 128, { size: 11 });
+    drawText(`Datum: ${formatDate(team.tournament.date)}`, 20, 135, { size: 11 });
+    drawText(`Ort: ${team.tournament.location}`, 20, 142, { size: 11 });
 
-    // Team info section
-    pdf.font("Helvetica-Bold");
-    pdf.fontSize(12);
-    pdf.text("Team", mm2pt(20), mm2pt(155));
-    
-    pdf.font("Helvetica");
-    pdf.fontSize(11);
-    pdf.text(`Teamname: ${team.name}`, mm2pt(20), mm2pt(163));
-    pdf.text(`Kategorie: ${team.category?.name || 'N/A'}`, mm2pt(20), mm2pt(170));
-    pdf.text(`Kontaktperson: ${team.contact_name}`, mm2pt(20), mm2pt(177));
+    // Team info
+    drawText("Team", 20, 155, { font: helveticaBold, size: 12 });
+    drawText(`Teamname: ${team.name}`, 20, 163, { size: 11 });
+    drawText(`Kategorie: ${team.category?.name || 'N/A'}`, 20, 170, { size: 11 });
+    drawText(`Kontaktperson: ${team.contact_name}`, 20, 177, { size: 11 });
 
     // Payment summary
-    pdf.font("Helvetica-Bold");
-    pdf.fontSize(12);
-    pdf.text("Rechnungsbetrag", mm2pt(20), mm2pt(195));
+    drawText("Rechnungsbetrag", 20, 195, { font: helveticaBold, size: 12 });
+    drawText(`CHF ${entryFee.toFixed(2)}`, 140, 195, { font: helveticaBold, size: 14 });
+
+    drawText(`Referenznummer: ${formatReference(referenceNumber)}`, 20, 205, { size: 9, color: rgb(0.4, 0.4, 0.4) });
+
+    // === Swiss QR Bill Section (bottom of page) ===
+    // The QR bill should be at the bottom 105mm of the page
     
-    pdf.fontSize(14);
-    pdf.text(`CHF ${entryFee.toFixed(2)}`, mm2pt(140), mm2pt(195));
-
-    pdf.font("Helvetica");
-    pdf.fontSize(9);
-    pdf.fillColor("#666666");
-    pdf.text(`Referenznummer: ${formatReference(referenceNumber)}`, mm2pt(20), mm2pt(205));
+    const qrBillTop = height - mm2pt(192); // Start at 192mm from top (A4 is 297mm)
     
-    pdf.fillColor("black");
-
-    // Create and attach the Swiss QR Bill
-    const qrBill = new SwissQRBill(qrBillData);
-    qrBill.attachTo(pdf);
-
-    // Finalize PDF
-    const pdfPromise = new Promise<Uint8Array>((resolve) => {
-      pdf.on('end', () => {
-        const result = new Uint8Array(chunks.reduce((acc, chunk) => acc + chunk.length, 0));
-        let offset = 0;
-        for (const chunk of chunks) {
-          result.set(chunk, offset);
-          offset += chunk.length;
-        }
-        resolve(result);
-      });
+    // Draw separator line
+    page.drawLine({
+      start: { x: 0, y: qrBillTop },
+      end: { x: 595.28, y: qrBillTop },
+      thickness: 0.5,
+      color: rgb(0, 0, 0),
+      dashArray: [5, 5],
     });
 
-    pdf.end();
+    // Receipt section (left side, 62mm wide)
+    const receiptX = 5;
+    const receiptTextY = qrBillTop - mm2pt(10);
+
+    page.drawText("Empfangsschein", {
+      x: mm2pt(receiptX),
+      y: receiptTextY,
+      size: 11,
+      font: helveticaBold,
+    });
+
+    page.drawText("Konto / Zahlbar an", {
+      x: mm2pt(receiptX),
+      y: receiptTextY - mm2pt(8),
+      size: 6,
+      font: helveticaBold,
+    });
+
+    // Creditor info in receipt
+    let receiptY = receiptTextY - mm2pt(12);
+    page.drawText(creditorAccount.replace(/\s/g, '').replace(/(.{4})/g, '$1 ').trim(), {
+      x: mm2pt(receiptX),
+      y: receiptY,
+      size: 8,
+      font: helvetica,
+    });
+    receiptY -= mm2pt(4);
+    page.drawText(creditorName, {
+      x: mm2pt(receiptX),
+      y: receiptY,
+      size: 8,
+      font: helvetica,
+    });
+    receiptY -= mm2pt(4);
+    page.drawText(`${creditorZip} ${creditorCity}`, {
+      x: mm2pt(receiptX),
+      y: receiptY,
+      size: 8,
+      font: helvetica,
+    });
+
+    // Reference
+    receiptY -= mm2pt(8);
+    page.drawText("Referenz", {
+      x: mm2pt(receiptX),
+      y: receiptY,
+      size: 6,
+      font: helveticaBold,
+    });
+    receiptY -= mm2pt(4);
+    page.drawText(formatReference(referenceNumber), {
+      x: mm2pt(receiptX),
+      y: receiptY,
+      size: 8,
+      font: helvetica,
+    });
+
+    // Amount in receipt
+    receiptY -= mm2pt(10);
+    page.drawText("Währung", {
+      x: mm2pt(receiptX),
+      y: receiptY,
+      size: 6,
+      font: helveticaBold,
+    });
+    page.drawText("Betrag", {
+      x: mm2pt(receiptX + 15),
+      y: receiptY,
+      size: 6,
+      font: helveticaBold,
+    });
+    receiptY -= mm2pt(4);
+    page.drawText("CHF", {
+      x: mm2pt(receiptX),
+      y: receiptY,
+      size: 8,
+      font: helvetica,
+    });
+    page.drawText(entryFee.toFixed(2), {
+      x: mm2pt(receiptX + 15),
+      y: receiptY,
+      size: 8,
+      font: helvetica,
+    });
+
+    // Acceptance point
+    receiptY -= mm2pt(12);
+    page.drawText("Annahmestelle", {
+      x: mm2pt(receiptX),
+      y: receiptY,
+      size: 6,
+      font: helveticaBold,
+    });
+
+    // Vertical separator between receipt and payment part
+    page.drawLine({
+      start: { x: mm2pt(62), y: qrBillTop },
+      end: { x: mm2pt(62), y: qrBillTop - mm2pt(105) },
+      thickness: 0.5,
+      color: rgb(0, 0, 0),
+      dashArray: [5, 5],
+    });
+
+    // Payment part (right side)
+    const paymentX = 67;
+    const paymentTextY = qrBillTop - mm2pt(10);
+
+    page.drawText("Zahlteil", {
+      x: mm2pt(paymentX),
+      y: paymentTextY,
+      size: 11,
+      font: helveticaBold,
+    });
+
+    // Generate QR Code
+    const qrPayload = generateSwissQRPayload({
+      account: creditorAccount,
+      creditorName,
+      creditorAddress: `${creditorAddress}${creditorBuildingNumber ? ' ' + creditorBuildingNumber : ''}`,
+      creditorZip,
+      creditorCity,
+      creditorCountry,
+      amount: entryFee,
+      currency: "CHF",
+      debtorName: team.contact_name,
+      reference: referenceNumber,
+      message: `Startgeld ${team.tournament.name} - Team ${team.name}`,
+    });
+
+    console.log("QR Payload:", qrPayload);
+
+    // Generate QR code as data URL
+    const qrDataUrl = await QRCode.toDataURL(qrPayload, {
+      errorCorrectionLevel: 'M',
+      margin: 0,
+      width: 166, // ~46mm at 72dpi
+    });
+
+    // Embed QR code image
+    const qrImageBytes = Uint8Array.from(atob(qrDataUrl.split(',')[1]), c => c.charCodeAt(0));
+    const qrImage = await pdfDoc.embedPng(qrImageBytes);
     
-    const pdfBuffer = await pdfPromise;
+    page.drawImage(qrImage, {
+      x: mm2pt(paymentX),
+      y: qrBillTop - mm2pt(56),
+      width: mm2pt(46),
+      height: mm2pt(46),
+    });
+
+    // Swiss cross in center of QR code
+    const crossSize = mm2pt(7);
+    const crossX = mm2pt(paymentX) + mm2pt(23) - crossSize/2;
+    const crossY = qrBillTop - mm2pt(33) - crossSize/2;
     
-    console.log("QR invoice PDF generated successfully, size:", pdfBuffer.length);
+    // White background for cross
+    page.drawRectangle({
+      x: crossX - mm2pt(1),
+      y: crossY - mm2pt(1),
+      width: crossSize + mm2pt(2),
+      height: crossSize + mm2pt(2),
+      color: rgb(1, 1, 1),
+    });
+    
+    // Black border
+    page.drawRectangle({
+      x: crossX,
+      y: crossY,
+      width: crossSize,
+      height: crossSize,
+      borderColor: rgb(0, 0, 0),
+      borderWidth: 1,
+    });
+
+    // Payment part creditor info
+    const infoX = mm2pt(118);
+    let infoY = paymentTextY - mm2pt(8);
+
+    page.drawText("Konto / Zahlbar an", {
+      x: infoX,
+      y: infoY,
+      size: 8,
+      font: helveticaBold,
+    });
+    infoY -= mm2pt(5);
+    page.drawText(creditorAccount.replace(/\s/g, '').replace(/(.{4})/g, '$1 ').trim(), {
+      x: infoX,
+      y: infoY,
+      size: 10,
+      font: helvetica,
+    });
+    infoY -= mm2pt(5);
+    page.drawText(creditorName, {
+      x: infoX,
+      y: infoY,
+      size: 10,
+      font: helvetica,
+    });
+    infoY -= mm2pt(5);
+    page.drawText(`${creditorZip} ${creditorCity}`, {
+      x: infoX,
+      y: infoY,
+      size: 10,
+      font: helvetica,
+    });
+
+    // Reference
+    infoY -= mm2pt(10);
+    page.drawText("Referenz", {
+      x: infoX,
+      y: infoY,
+      size: 8,
+      font: helveticaBold,
+    });
+    infoY -= mm2pt(5);
+    page.drawText(formatReference(referenceNumber), {
+      x: infoX,
+      y: infoY,
+      size: 10,
+      font: helvetica,
+    });
+
+    // Additional info
+    infoY -= mm2pt(10);
+    page.drawText("Zusätzliche Informationen", {
+      x: infoX,
+      y: infoY,
+      size: 8,
+      font: helveticaBold,
+    });
+    infoY -= mm2pt(5);
+    page.drawText(`Startgeld ${team.tournament.name}`, {
+      x: infoX,
+      y: infoY,
+      size: 10,
+      font: helvetica,
+    });
+    infoY -= mm2pt(5);
+    page.drawText(`Team ${team.name}`, {
+      x: infoX,
+      y: infoY,
+      size: 10,
+      font: helvetica,
+    });
+
+    // Amount section at bottom
+    const amountY = qrBillTop - mm2pt(85);
+    page.drawText("Währung", {
+      x: mm2pt(paymentX),
+      y: amountY,
+      size: 8,
+      font: helveticaBold,
+    });
+    page.drawText("Betrag", {
+      x: mm2pt(paymentX + 20),
+      y: amountY,
+      size: 8,
+      font: helveticaBold,
+    });
+    page.drawText("CHF", {
+      x: mm2pt(paymentX),
+      y: amountY - mm2pt(5),
+      size: 10,
+      font: helvetica,
+    });
+    page.drawText(entryFee.toFixed(2), {
+      x: mm2pt(paymentX + 20),
+      y: amountY - mm2pt(5),
+      size: 10,
+      font: helvetica,
+    });
+
+    // Serialize PDF
+    const pdfBytes = await pdfDoc.save();
+    
+    console.log("QR invoice PDF generated successfully, size:", pdfBytes.length);
 
     // Return PDF as base64
-    const base64Pdf = btoa(String.fromCharCode(...pdfBuffer));
+    const base64Pdf = btoa(String.fromCharCode(...pdfBytes));
 
     return new Response(
       JSON.stringify({ 
