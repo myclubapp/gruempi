@@ -621,38 +621,116 @@ export default function MatchScheduleGenerator({ tournamentId }: MatchScheduleGe
                 </AlertDescription>
               </Alert>
 
-              <div className="max-h-96 overflow-y-auto space-y-2">
-                {previewMatches.slice(0, 30).map((match, i) => (
-                  <div key={i} className={`p-4 border rounded-lg ${match.match_type !== 'group' ? 'bg-accent/20 border-accent' : ''}`}>
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="font-medium">
-                        Spiel #{match.match_number} - Feld {match.field_number}
+              {(() => {
+                // Group matches by time slot
+                const timeSlots = new Map<string, GeneratedMatch[]>();
+                const sortedMatches = [...previewMatches].sort((a, b) => 
+                  a.scheduled_time.getTime() - b.scheduled_time.getTime()
+                );
+                
+                sortedMatches.forEach(match => {
+                  const timeKey = format(match.scheduled_time, "HH:mm", { locale: de });
+                  if (!timeSlots.has(timeKey)) {
+                    timeSlots.set(timeKey, []);
+                  }
+                  timeSlots.get(timeKey)!.push(match);
+                });
+
+                // Get max field number
+                const maxField = Math.max(...previewMatches.map(m => m.field_number));
+                const fields = Array.from({ length: maxField }, (_, i) => i + 1);
+
+                // Detect breaks (time gaps > normal match + break duration)
+                const timeKeys = Array.from(timeSlots.keys());
+                
+                return (
+                  <div className="overflow-x-auto">
+                    <div className="min-w-max">
+                      {/* Header row with field numbers */}
+                      <div className="grid gap-2 mb-2" style={{ gridTemplateColumns: `80px repeat(${maxField}, minmax(180px, 1fr))` }}>
+                        <div className="font-medium text-sm text-muted-foreground p-2">Zeit</div>
+                        {fields.map(field => (
+                          <div key={field} className="font-medium text-sm text-center p-2 bg-muted rounded">
+                            Platz {field}
+                          </div>
+                        ))}
                       </div>
-                      <div className="text-sm text-muted-foreground">
-                        {format(match.scheduled_time, "HH:mm", { locale: de })}
-                      </div>
-                    </div>
-                    <div className="text-sm space-y-1">
-                      <div className="flex items-center gap-2">
-                        <Badge variant={match.match_type !== 'group' ? 'default' : 'outline'}>
-                          {match.categoryName}
-                        </Badge>
-                        {match.groupName && (
-                          <span className="text-muted-foreground">{match.groupName}</span>
-                        )}
-                      </div>
-                      <div className="font-semibold">
-                        {match.homeTeamName} vs {match.awayTeamName}
-                      </div>
+
+                      {/* Match rows by time slot */}
+                      {timeKeys.map((timeKey, idx) => {
+                        const matchesAtTime = timeSlots.get(timeKey)!;
+                        const isKOPhase = matchesAtTime.some(m => m.match_type !== 'group');
+                        
+                        // Check for break before this slot
+                        let showBreak = false;
+                        if (idx > 0) {
+                          const prevTime = timeSlots.get(timeKeys[idx - 1])![0].scheduled_time;
+                          const currTime = matchesAtTime[0].scheduled_time;
+                          const diffMinutes = (currTime.getTime() - prevTime.getTime()) / 60000;
+                          // Show break indicator if gap is significantly larger than normal
+                          if (diffMinutes > 30) {
+                            showBreak = true;
+                          }
+                        }
+
+                        return (
+                          <div key={timeKey}>
+                            {showBreak && (
+                              <div className="grid gap-2 my-2" style={{ gridTemplateColumns: `80px repeat(${maxField}, minmax(180px, 1fr))` }}>
+                                <div></div>
+                                <div className="col-span-full text-center py-2 text-sm text-muted-foreground bg-muted/50 rounded border-dashed border">
+                                  ⏸ Pause
+                                </div>
+                              </div>
+                            )}
+                            <div 
+                              className="grid gap-2 mb-2" 
+                              style={{ gridTemplateColumns: `80px repeat(${maxField}, minmax(180px, 1fr))` }}
+                            >
+                              <div className="text-sm font-medium p-2 flex items-center justify-center bg-muted/30 rounded">
+                                {timeKey}
+                              </div>
+                              {fields.map(field => {
+                                const match = matchesAtTime.find(m => m.field_number === field);
+                                if (!match) {
+                                  return <div key={field} className="p-2 border border-dashed rounded bg-muted/10"></div>;
+                                }
+                                return (
+                                  <div 
+                                    key={field} 
+                                    className={`p-2 border rounded text-xs ${
+                                      match.match_type !== 'group' 
+                                        ? 'bg-accent/20 border-accent' 
+                                        : 'bg-card'
+                                    }`}
+                                  >
+                                    <div className="flex items-center justify-between mb-1">
+                                      <span className="text-muted-foreground">#{match.match_number}</span>
+                                      <Badge variant={match.match_type !== 'group' ? 'default' : 'outline'} className="text-[10px] px-1 py-0">
+                                        {match.categoryName}
+                                      </Badge>
+                                    </div>
+                                    {match.groupName && (
+                                      <div className="text-muted-foreground text-[10px] mb-1">{match.groupName}</div>
+                                    )}
+                                    <div className="font-medium truncate" title={`${match.homeTeamName} vs ${match.awayTeamName}`}>
+                                      {match.homeTeamName}
+                                    </div>
+                                    <div className="text-center text-muted-foreground">vs</div>
+                                    <div className="font-medium truncate" title={`${match.homeTeamName} vs ${match.awayTeamName}`}>
+                                      {match.awayTeamName}
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
-                ))}
-                {previewMatches.length > 30 && (
-                  <div className="text-center text-muted-foreground">
-                    ... und {previewMatches.length - 30} weitere Spiele
-                  </div>
-                )}
-              </div>
+                );
+              })()}
 
               <Button onClick={handleSaveSchedule} disabled={loading} className="w-full">
                 Spielplan speichern
