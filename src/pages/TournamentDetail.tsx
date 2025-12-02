@@ -5,7 +5,11 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Globe, Users, Settings as SettingsIcon, Award, CreditCard } from "lucide-react";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { ArrowLeft, Globe, Users, Settings as SettingsIcon, Award, CreditCard, Edit2, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import DomainSettings from "@/components/tournament/DomainSettings";
 import PaymentSettings from "@/components/tournament/PaymentSettings";
@@ -43,6 +47,9 @@ const TournamentDetail = () => {
   const [organizerProfile, setOrganizerProfile] = useState<any>(null);
   const [teams, setTeams] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [editingTeam, setEditingTeam] = useState<any>(null);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [deleteTeamId, setDeleteTeamId] = useState<string | null>(null);
 
   useEffect(() => {
     loadTournament();
@@ -129,6 +136,71 @@ const TournamentDetail = () => {
     } else {
       toast.success("Status aktualisiert");
       setTournament({ ...tournament, status: newStatus });
+    }
+  };
+
+  const handleEditTeam = (team: any) => {
+    setEditingTeam({
+      id: team.id,
+      name: team.name,
+      contact_name: team.contact_name,
+      contact_email: team.contact_email,
+      contact_phone: team.contact_phone || "",
+      payment_status: team.payment_status,
+    });
+    setEditDialogOpen(true);
+  };
+
+  const handleSaveTeam = async () => {
+    if (!editingTeam) return;
+
+    const { error } = await supabase
+      .from("teams")
+      .update({
+        name: editingTeam.name,
+        contact_name: editingTeam.contact_name,
+        contact_email: editingTeam.contact_email,
+        contact_phone: editingTeam.contact_phone,
+        payment_status: editingTeam.payment_status,
+      })
+      .eq("id", editingTeam.id);
+
+    if (error) {
+      toast.error("Fehler beim Speichern");
+    } else {
+      toast.success("Team aktualisiert");
+      setEditDialogOpen(false);
+      setEditingTeam(null);
+      loadTournament();
+    }
+  };
+
+  const handleDeleteTeam = async () => {
+    if (!deleteTeamId) return;
+
+    // First delete all players associated with the team
+    const { error: playersError } = await supabase
+      .from("team_players")
+      .delete()
+      .eq("team_id", deleteTeamId);
+
+    if (playersError) {
+      toast.error("Fehler beim Löschen der Spieler");
+      return;
+    }
+
+    // Then delete the team
+    const { error } = await supabase
+      .from("teams")
+      .delete()
+      .eq("id", deleteTeamId);
+
+    if (error) {
+      toast.error("Fehler beim Löschen des Teams");
+    } else {
+      toast.success("Team gelöscht");
+      setDeleteTeamId(null);
+      loadTournament();
     }
   };
 
@@ -366,6 +438,14 @@ const TournamentDetail = () => {
                               </div>
                             </div>
                             <div className="flex gap-2">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleEditTeam(team)}
+                              >
+                                <Edit2 className="w-4 h-4 mr-1" />
+                                Bearbeiten
+                              </Button>
                               {team.payment_status === 'pending' && (
                                 <Button
                                   size="sm"
@@ -387,6 +467,13 @@ const TournamentDetail = () => {
                                   Zahlung bestätigen
                                 </Button>
                               )}
+                              <Button
+                                size="sm"
+                                variant="destructive"
+                                onClick={() => setDeleteTeamId(team.id)}
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
                             </div>
                           </div>
                         </CardContent>
@@ -450,6 +537,91 @@ const TournamentDetail = () => {
             </Card>
           </TabsContent>
         </Tabs>
+
+        {/* Edit Team Dialog */}
+        <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+          <DialogContent className="sm:max-w-[500px]">
+            <DialogHeader>
+              <DialogTitle>Team bearbeiten</DialogTitle>
+              <DialogDescription>
+                Aktualisiere die Team-Informationen
+              </DialogDescription>
+            </DialogHeader>
+            {editingTeam && (
+              <div className="space-y-4 py-4">
+                <div className="space-y-2">
+                  <Label htmlFor="team-name">Teamname</Label>
+                  <Input
+                    id="team-name"
+                    value={editingTeam.name}
+                    onChange={(e) => setEditingTeam({ ...editingTeam, name: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="contact-name">Kontaktperson</Label>
+                  <Input
+                    id="contact-name"
+                    value={editingTeam.contact_name}
+                    onChange={(e) => setEditingTeam({ ...editingTeam, contact_name: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="contact-email">E-Mail</Label>
+                  <Input
+                    id="contact-email"
+                    type="email"
+                    value={editingTeam.contact_email}
+                    onChange={(e) => setEditingTeam({ ...editingTeam, contact_email: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="contact-phone">Telefon</Label>
+                  <Input
+                    id="contact-phone"
+                    value={editingTeam.contact_phone}
+                    onChange={(e) => setEditingTeam({ ...editingTeam, contact_phone: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="payment-status">Zahlungsstatus</Label>
+                  <select
+                    id="payment-status"
+                    value={editingTeam.payment_status}
+                    onChange={(e) => setEditingTeam({ ...editingTeam, payment_status: e.target.value })}
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  >
+                    <option value="pending">Ausstehend</option>
+                    <option value="paid">Bezahlt</option>
+                  </select>
+                </div>
+              </div>
+            )}
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setEditDialogOpen(false)}>
+                Abbrechen
+              </Button>
+              <Button onClick={handleSaveTeam}>Speichern</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Delete Confirmation Dialog */}
+        <AlertDialog open={!!deleteTeamId} onOpenChange={(open) => !open && setDeleteTeamId(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Team löschen?</AlertDialogTitle>
+              <AlertDialogDescription>
+                Diese Aktion kann nicht rückgängig gemacht werden. Das Team und alle zugehörigen Spieler werden dauerhaft gelöscht.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Abbrechen</AlertDialogCancel>
+              <AlertDialogAction onClick={handleDeleteTeam} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                Löschen
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </main>
     </div>
   );
