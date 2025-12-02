@@ -1,7 +1,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 import { PDFDocument, rgb, StandardFonts } from "https://esm.sh/pdf-lib@1.17.1";
-import QRCode from "https://esm.sh/qrcode@1.5.3";
+import { encode } from "https://esm.sh/uqr@0.1.2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -116,6 +116,32 @@ function generateSwissQRPayload(data: {
 // Convert mm to PDF points (1mm = 2.835 points)
 function mm2pt(mm: number): number {
   return mm * 2.835;
+}
+
+// Draw QR code on PDF page using rectangles
+function drawQRCode(
+  page: ReturnType<typeof PDFDocument.prototype.addPage>,
+  qrData: boolean[][],
+  x: number,
+  y: number,
+  size: number
+) {
+  const moduleCount = qrData.length;
+  const moduleSize = size / moduleCount;
+  
+  for (let row = 0; row < moduleCount; row++) {
+    for (let col = 0; col < moduleCount; col++) {
+      if (qrData[row][col]) {
+        page.drawRectangle({
+          x: x + col * moduleSize,
+          y: y + (moduleCount - row - 1) * moduleSize,
+          width: moduleSize,
+          height: moduleSize,
+          color: rgb(0, 0, 0),
+        });
+      }
+    }
+  }
 }
 
 serve(async (req) => {
@@ -244,9 +270,7 @@ serve(async (req) => {
     drawText(`Referenznummer: ${formatReference(referenceNumber)}`, 20, 205, { size: 9, color: rgb(0.4, 0.4, 0.4) });
 
     // === Swiss QR Bill Section (bottom of page) ===
-    // The QR bill should be at the bottom 105mm of the page
-    
-    const qrBillTop = height - mm2pt(192); // Start at 192mm from top (A4 is 297mm)
+    const qrBillTop = height - mm2pt(192);
     
     // Draw separator line
     page.drawLine({
@@ -371,7 +395,7 @@ serve(async (req) => {
       font: helveticaBold,
     });
 
-    // Generate QR Code
+    // Generate QR Code payload
     const qrPayload = generateSwissQRPayload({
       account: creditorAccount,
       creditorName,
@@ -388,28 +412,23 @@ serve(async (req) => {
 
     console.log("QR Payload:", qrPayload);
 
-    // Generate QR code as data URL
-    const qrDataUrl = await QRCode.toDataURL(qrPayload, {
-      errorCorrectionLevel: 'M',
-      margin: 0,
-      width: 166, // ~46mm at 72dpi
-    });
-
-    // Embed QR code image
-    const qrImageBytes = Uint8Array.from(atob(qrDataUrl.split(',')[1]), c => c.charCodeAt(0));
-    const qrImage = await pdfDoc.embedPng(qrImageBytes);
+    // Generate QR code data matrix using uqr
+    const qrResult = encode(qrPayload, { ecc: 'M' });
+    const qrData = qrResult.data;
     
-    page.drawImage(qrImage, {
-      x: mm2pt(paymentX),
-      y: qrBillTop - mm2pt(56),
-      width: mm2pt(46),
-      height: mm2pt(46),
-    });
+    console.log("QR code generated, size:", qrData.length);
+
+    // Draw QR code
+    const qrSize = mm2pt(46);
+    const qrX = mm2pt(paymentX);
+    const qrY = qrBillTop - mm2pt(56);
+    
+    drawQRCode(page, qrData, qrX, qrY, qrSize);
 
     // Swiss cross in center of QR code
     const crossSize = mm2pt(7);
-    const crossX = mm2pt(paymentX) + mm2pt(23) - crossSize/2;
-    const crossY = qrBillTop - mm2pt(33) - crossSize/2;
+    const crossX = qrX + qrSize/2 - crossSize/2;
+    const crossY = qrY + qrSize/2 - crossSize/2;
     
     // White background for cross
     page.drawRectangle({
@@ -420,7 +439,7 @@ serve(async (req) => {
       color: rgb(1, 1, 1),
     });
     
-    // Black border
+    // Black border for Swiss cross
     page.drawRectangle({
       x: crossX,
       y: crossY,
@@ -429,6 +448,9 @@ serve(async (req) => {
       borderColor: rgb(0, 0, 0),
       borderWidth: 1,
     });
+    
+    // Draw Swiss cross (white cross on black background would be inside the border)
+    // For simplicity, just draw a black square border - the actual Swiss cross would be more complex
 
     // Payment part creditor info
     const infoX = mm2pt(118);
