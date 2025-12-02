@@ -41,12 +41,21 @@ serve(async (req) => {
       throw new Error(`Team not found: ${teamError?.message}`);
     }
 
-    // Generate reference number (simplified format)
-    const tournamentPart = team.tournament.id.substring(0, 8).replace(/-/g, "").toUpperCase();
-    const teamPart = team_id.substring(0, 8).replace(/-/g, "").toUpperCase();
-    const referenceNumber = `${tournamentPart}${teamPart}`;
+    // Generate 27-character QR reference number
+    // Format: tournament part (8) + team part (8) + sequential (9) + check digit (2)
+    const tournamentPart = team.tournament.id.substring(0, 8).replace(/-/g, "");
+    const teamPart = team_id.substring(0, 8).replace(/-/g, "");
+    const sequentialPart = String(Date.now()).slice(-9); // Last 9 digits of timestamp
+    
+    // Combine to 25 characters (we'll add 2-digit check digit)
+    const baseReference = `${tournamentPart}${teamPart}${sequentialPart}`;
+    
+    // Calculate modulo 97 check digit for QR-Reference (ISO 11649)
+    const numericRef = baseReference.replace(/[A-Z]/gi, (c) => String(c.charCodeAt(0) - 55));
+    const checkDigit = Number(98n - (BigInt(numericRef + "00") % 97n));
+    const referenceNumber = baseReference + String(checkDigit).padStart(2, "0");
 
-    // Swiss QR Bill data
+    // Swiss QR Bill data (without reference for regular IBAN)
     const qrData = {
       amount: team.tournament.entry_fee,
       currency: "CHF" as "CHF" | "EUR",
@@ -67,8 +76,7 @@ serve(async (req) => {
         city: "",
         country: "CH",
       },
-      reference: referenceNumber,
-      message: `Startgeld ${team.tournament.name} - Team ${team.name}`.substring(0, 140),
+      message: `Startgeld ${team.tournament.name} - Team ${team.name} - Ref: ${referenceNumber}`.substring(0, 140),
     };
 
     // Generate SVG QR Bill
