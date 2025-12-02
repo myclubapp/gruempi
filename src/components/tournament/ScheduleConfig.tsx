@@ -20,6 +20,8 @@ interface ScheduleConfig {
   number_of_fields: number;
   ranking_mode: string;
   ko_phase_teams: number;
+  ko_break_before_minutes: number;
+  ko_break_between_minutes: number;
 }
 
 const rankingModes = [
@@ -46,6 +48,8 @@ export default function ScheduleConfig({ tournamentId }: ScheduleConfigProps) {
     number_of_fields: 1,
     ranking_mode: "points_goal_diff_direct",
     ko_phase_teams: 0,
+    ko_break_before_minutes: 15,
+    ko_break_between_minutes: 10,
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -87,6 +91,8 @@ export default function ScheduleConfig({ tournamentId }: ScheduleConfigProps) {
             number_of_fields: config.number_of_fields,
             ranking_mode: config.ranking_mode,
             ko_phase_teams: config.ko_phase_teams,
+            ko_break_before_minutes: config.ko_break_before_minutes,
+            ko_break_between_minutes: config.ko_break_between_minutes,
           })
           .eq("id", config.id);
 
@@ -232,15 +238,44 @@ export default function ScheduleConfig({ tournamentId }: ScheduleConfigProps) {
               </Select>
             </div>
             {config.ko_phase_teams > 0 && (
-              <div className="p-4 bg-muted rounded-lg text-sm space-y-2">
-                <p className="font-medium">Hinweis zur KO-Phase:</p>
-                <ul className="list-disc list-inside space-y-1 text-muted-foreground">
-                  <li>Die besten Teams aus allen Gruppen kommen weiter</li>
-                  <li>Bei 6 Teams (Viertelfinale): 2 beste Teams erhalten Freilos, 4 Teams spielen Viertelfinale</li>
-                  <li>Bei 12 Teams (Achtelfinale): 4 beste Teams erhalten Freilos, 8 Teams spielen Achtelfinale</li>
-                  <li>Sortierung: Punkte → Tordifferenz → Erzielte Tore (gemäss Ranglisten-Modus)</li>
-                </ul>
-              </div>
+              <>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="ko_break_before">Pause vor KO-Phase (Minuten)</Label>
+                    <Input
+                      id="ko_break_before"
+                      type="number"
+                      min="0"
+                      value={config.ko_break_before_minutes}
+                      onChange={(e) =>
+                        setConfig({ ...config, ko_break_before_minutes: parseInt(e.target.value) || 0 })
+                      }
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="ko_break_between">Pause zwischen KO-Spielen (Minuten)</Label>
+                    <Input
+                      id="ko_break_between"
+                      type="number"
+                      min="0"
+                      value={config.ko_break_between_minutes}
+                      onChange={(e) =>
+                        setConfig({ ...config, ko_break_between_minutes: parseInt(e.target.value) || 0 })
+                      }
+                    />
+                  </div>
+                </div>
+                <div className="p-4 bg-muted rounded-lg text-sm space-y-2 mt-4">
+                  <p className="font-medium">Hinweis zur KO-Phase:</p>
+                  <ul className="list-disc list-inside space-y-1 text-muted-foreground">
+                    <li>Die besten Teams aus allen Gruppen kommen weiter</li>
+                    <li>Bei 6 Teams (Viertelfinale): 2 beste Teams erhalten Freilos, 4 Teams spielen Viertelfinale</li>
+                    <li>Bei 12 Teams (Achtelfinale): 4 beste Teams erhalten Freilos, 8 Teams spielen Achtelfinale</li>
+                    <li>Sortierung: Punkte → Tordifferenz → Erzielte Tore (gemäss Ranglisten-Modus)</li>
+                    <li>KO-Spiele werden mit Platzhaltern generiert und nach Abschluss der Gruppenphase aktualisiert</li>
+                  </ul>
+                </div>
+              </>
             )}
           </div>
         </CardContent>
