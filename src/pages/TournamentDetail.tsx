@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { ArrowLeft, Globe, Users, Settings as SettingsIcon, Award, CreditCard, Edit2, Trash2 } from "lucide-react";
+import { ArrowLeft, Globe, Users, Settings as SettingsIcon, Award, CreditCard, Edit2, Trash2, Share2, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
 import DomainSettings from "@/components/tournament/DomainSettings";
 import PaymentSettings from "@/components/tournament/PaymentSettings";
@@ -216,6 +216,23 @@ const TournamentDetail = () => {
     }
   };
 
+  const getMicrositeUrl = () => {
+    if (tournament?.custom_domain && tournament.domain_status === "active") {
+      return `https://${tournament.custom_domain}/tournaments/${tournament.id}`;
+    }
+    return `${window.location.origin}/tournaments/${tournament?.id}`;
+  };
+
+  const handleShareMicrosite = async () => {
+    const url = getMicrositeUrl();
+    try {
+      await navigator.clipboard.writeText(url);
+      toast.success("Link in Zwischenablage kopiert!");
+    } catch (error) {
+      toast.error("Fehler beim Kopieren des Links");
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -243,6 +260,26 @@ const TournamentDetail = () => {
               Zurück zum Dashboard
             </Button>
             <div className="flex items-center gap-2">
+              {tournament.status !== "draft" && (
+                <Button
+                  variant="outline"
+                  onClick={handleShareMicrosite}
+                  className="gap-2"
+                >
+                  <Share2 className="w-4 h-4" />
+                  Microsite teilen
+                </Button>
+              )}
+              {tournament.status !== "draft" && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => window.open(getMicrositeUrl(), "_blank")}
+                  title="Microsite öffnen"
+                >
+                  <ExternalLink className="w-4 h-4" />
+                </Button>
+              )}
               {getStatusBadge(tournament.status)}
               {tournament.status === "draft" && (
                 <Button
