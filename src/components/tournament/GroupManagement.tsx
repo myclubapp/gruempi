@@ -155,7 +155,7 @@ export default function GroupManagement({ tournamentId }: GroupManagementProps) 
     }
   };
 
-  const handleAssignTeam = async (teamId: string, groupId: string | null) => {
+  const handleAssignTeam = async (teamId: string, groupId: string) => {
     try {
       // Delete existing assignment
       await supabase
@@ -163,8 +163,8 @@ export default function GroupManagement({ tournamentId }: GroupManagementProps) 
         .delete()
         .eq("team_id", teamId);
 
-      // Create new assignment if group selected
-      if (groupId) {
+      // Create new assignment if group selected (not "none")
+      if (groupId !== "none") {
         const { error } = await supabase
           .from("team_group_assignments")
           .insert([{ team_id: teamId, group_id: groupId }]);
@@ -172,7 +172,7 @@ export default function GroupManagement({ tournamentId }: GroupManagementProps) 
         if (error) throw error;
       }
 
-      setAssignments({ ...assignments, [teamId]: groupId });
+      setAssignments({ ...assignments, [teamId]: groupId === "none" ? null : groupId });
       toast.success("Team zugewiesen");
     } catch (error) {
       console.error("Error assigning team:", error);
@@ -317,14 +317,14 @@ export default function GroupManagement({ tournamentId }: GroupManagementProps) 
                   <div key={team.id} className="flex items-center justify-between p-3 border rounded-lg">
                     <span>{team.name}</span>
                     <Select
-                      value={assignments[team.id] || ""}
-                      onValueChange={(value) => handleAssignTeam(team.id, value || null)}
+                      value={assignments[team.id] || "none"}
+                      onValueChange={(value) => handleAssignTeam(team.id, value)}
                     >
                       <SelectTrigger className="w-[200px]">
                         <SelectValue placeholder="Keine Gruppe" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="">Keine Gruppe</SelectItem>
+                        <SelectItem value="none">Keine Gruppe</SelectItem>
                         {groups.map((group) => (
                           <SelectItem key={group.id} value={group.id}>
                             {group.name}
