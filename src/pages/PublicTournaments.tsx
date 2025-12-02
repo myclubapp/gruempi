@@ -5,7 +5,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Calendar, MapPin, Clock, Users } from "lucide-react";
-import Navigation from "@/components/Navigation";
+import ModernNavigation from "@/components/ModernNavigation";
+import ModernFooter from "@/components/ModernFooter";
 
 interface Tournament {
   id: string;
@@ -58,9 +59,9 @@ const PublicTournaments = () => {
   };
 
   if (loading) {
-    return (
-      <div className="min-h-screen bg-background">
-        <Navigation />
+  return (
+    <div className="min-h-screen bg-background">
+      <ModernNavigation />
         <div className="container mx-auto px-4 py-12 flex items-center justify-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
         </div>
@@ -70,7 +71,7 @@ const PublicTournaments = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <Navigation />
+      <ModernNavigation />
       
       <main className="container mx-auto px-4 py-12">
         <div className="text-center mb-12">
@@ -154,6 +155,7 @@ const PublicTournaments = () => {
           </div>
         )}
       </main>
+      <ModernFooter />
     </div>
   );
 };

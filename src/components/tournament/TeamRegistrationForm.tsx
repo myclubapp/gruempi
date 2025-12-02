@@ -10,7 +10,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { toast } from "sonner";
 import { ArrowLeft, Plus, X } from "lucide-react";
-import Navigation from "@/components/Navigation";
+import ModernNavigation from "@/components/ModernNavigation";
 
 interface Player {
   name: string;
@@ -209,7 +209,7 @@ const TeamRegistrationForm = ({ tournament, categories, onBack }: TeamRegistrati
 
   return (
     <div className="min-h-screen bg-background">
-      <Navigation />
+      <ModernNavigation />
 
       <main className="container mx-auto px-4 py-8 max-w-4xl">
         <Button variant="ghost" onClick={onBack} className="mb-6">
