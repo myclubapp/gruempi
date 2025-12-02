@@ -100,6 +100,12 @@ export type Database = {
       profiles: {
         Row: {
           created_at: string | null
+          creditor_account: string | null
+          creditor_address: string | null
+          creditor_building_number: string | null
+          creditor_city: string | null
+          creditor_country: string | null
+          creditor_zip: string | null
           full_name: string
           id: string
           organization: string | null
@@ -108,6 +114,12 @@ export type Database = {
         }
         Insert: {
           created_at?: string | null
+          creditor_account?: string | null
+          creditor_address?: string | null
+          creditor_building_number?: string | null
+          creditor_city?: string | null
+          creditor_country?: string | null
+          creditor_zip?: string | null
           full_name: string
           id: string
           organization?: string | null
@@ -116,6 +128,12 @@ export type Database = {
         }
         Update: {
           created_at?: string | null
+          creditor_account?: string | null
+          creditor_address?: string | null
+          creditor_building_number?: string | null
+          creditor_city?: string | null
+          creditor_country?: string | null
+          creditor_zip?: string | null
           full_name?: string
           id?: string
           organization?: string | null
@@ -373,6 +391,13 @@ export type Database = {
       tournaments: {
         Row: {
           created_at: string | null
+          creditor_account: string | null
+          creditor_address: string | null
+          creditor_building_number: string | null
+          creditor_city: string | null
+          creditor_country: string | null
+          creditor_name: string | null
+          creditor_zip: string | null
           custom_domain: string | null
           date: string
           description: string | null
@@ -384,6 +409,7 @@ export type Database = {
           location: string
           name: string
           organizer_id: string
+          payment_reference_prefix: string | null
           registration_deadline: string | null
           rules: string | null
           rules_pdf_url: string | null
@@ -396,6 +422,13 @@ export type Database = {
         }
         Insert: {
           created_at?: string | null
+          creditor_account?: string | null
+          creditor_address?: string | null
+          creditor_building_number?: string | null
+          creditor_city?: string | null
+          creditor_country?: string | null
+          creditor_name?: string | null
+          creditor_zip?: string | null
           custom_domain?: string | null
           date: string
           description?: string | null
@@ -407,6 +440,7 @@ export type Database = {
           location: string
           name: string
           organizer_id: string
+          payment_reference_prefix?: string | null
           registration_deadline?: string | null
           rules?: string | null
           rules_pdf_url?: string | null
@@ -419,6 +453,13 @@ export type Database = {
         }
         Update: {
           created_at?: string | null
+          creditor_account?: string | null
+          creditor_address?: string | null
+          creditor_building_number?: string | null
+          creditor_city?: string | null
+          creditor_country?: string | null
+          creditor_name?: string | null
+          creditor_zip?: string | null
           custom_domain?: string | null
           date?: string
           description?: string | null
@@ -430,6 +471,7 @@ export type Database = {
           location?: string
           name?: string
           organizer_id?: string
+          payment_reference_prefix?: string | null
           registration_deadline?: string | null
           rules?: string | null
           rules_pdf_url?: string | null

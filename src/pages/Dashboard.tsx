@@ -95,10 +95,15 @@ const Dashboard = () => {
               <span className="text-sm text-muted-foreground mr-2">
                 {profile?.full_name}
               </span>
-              <Button variant="ghost" size="icon">
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                onClick={() => navigate("/profile")}
+                title="Profil bearbeiten"
+              >
                 <Settings className="w-5 h-5" />
               </Button>
-              <Button variant="ghost" size="icon" onClick={handleLogout}>
+              <Button variant="ghost" size="icon" onClick={handleLogout} title="Abmelden">
                 <LogOut className="w-5 h-5" />
               </Button>
             </div>
