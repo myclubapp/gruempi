@@ -7,6 +7,35 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// Calculate modulo 10 recursive checksum for QR reference
+function calculateMod10Recursive(ref: string): number {
+  const table = [0, 9, 4, 6, 8, 2, 7, 1, 3, 5];
+  let carry = 0;
+  for (const char of ref) {
+    const digit = parseInt(char, 10);
+    if (isNaN(digit)) continue;
+    carry = table[(carry + digit) % 10];
+  }
+  return (10 - carry) % 10;
+}
+
+// Generate a valid 27-digit QR reference
+function generateQRReference(tournamentId: string, teamId: string, timestamp: number): string {
+  // Create base from IDs (only digits)
+  const tournamentDigits = tournamentId.replace(/[^0-9]/g, '').substring(0, 8);
+  const teamDigits = teamId.replace(/[^0-9]/g, '').substring(0, 8);
+  const timestampDigits = String(timestamp).slice(-9);
+  
+  // Combine and pad to 26 digits
+  let base = (tournamentDigits + teamDigits + timestampDigits).replace(/[^0-9]/g, '');
+  base = base.padStart(26, '0').substring(0, 26);
+  
+  // Calculate check digit
+  const checkDigit = calculateMod10Recursive(base);
+  
+  return base + String(checkDigit);
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -54,7 +83,7 @@ serve(async (req) => {
 
     // Use tournament-specific creditor info if available, otherwise fall back to profile
     const creditorAccount = team.tournament.creditor_account || profile?.creditor_account;
-    const creditorName = team.tournament.creditor_name || profile?.full_name || team.tournament.name;
+    const creditorName = team.tournament.creditor_name || profile?.creditor_name || profile?.full_name || team.tournament.name;
     const creditorAddress = team.tournament.creditor_address || profile?.creditor_address || "";
     const creditorBuildingNumber = team.tournament.creditor_building_number || profile?.creditor_building_number || "";
     const creditorZip = team.tournament.creditor_zip || profile?.creditor_zip || "";
@@ -65,34 +94,26 @@ serve(async (req) => {
       throw new Error("Keine Creditor-Informationen verfügbar. Bitte Profil oder Turnier-Einstellungen aktualisieren.");
     }
 
-    // Generate 27-character QR reference number
-    // Format: prefix (if provided) + tournament part + team part + sequential + check digit
-    const referencePrefix = team.tournament.payment_reference_prefix || "";
-    const tournamentPart = team.tournament.id.substring(0, 6).replace(/-/g, "");
-    const teamPart = team_id.substring(0, 6).replace(/-/g, "");
-    const sequentialPart = String(Date.now()).slice(-7); // Last 7 digits of timestamp
+    // Generate valid 27-digit QR reference
+    const referenceNumber = generateQRReference(team.tournament.id, team_id, Date.now());
     
-    // Combine parts (ensuring we don't exceed 25 characters before check digit)
-    const baseParts = `${referencePrefix}${tournamentPart}${teamPart}${sequentialPart}`;
-    const baseReference = baseParts.substring(0, 25);
-    
-    // Calculate modulo 97 check digit for QR-Reference (ISO 11649)
-    const numericRef = baseReference.replace(/[A-Z]/gi, (c) => String(c.charCodeAt(0) - 55));
-    const checkDigit = Number(98n - (BigInt(numericRef + "00") % 97n));
-    const referenceNumber = baseReference + String(checkDigit).padStart(2, "0");
+    console.log("Generated QR reference:", referenceNumber);
+
+    // Get entry fee from category or tournament
+    const entryFee = team.category?.entry_fee || team.tournament.entry_fee || 0;
 
     // Swiss QR Bill data using configured creditor information
-    const qrData = {
-      amount: team.tournament.entry_fee,
-      currency: "CHF" as "CHF" | "EUR",
+    const qrData: any = {
+      amount: entryFee,
+      currency: "CHF",
       creditor: {
         account: creditorAccount,
-        name: creditorName.substring(0, 70), // Max 70 characters
+        name: creditorName.substring(0, 70),
         address: creditorAddress.substring(0, 70),
         buildingNumber: creditorBuildingNumber.substring(0, 16),
         zip: creditorZip ? parseInt(creditorZip) : 0,
         city: creditorCity.substring(0, 35),
-        country: creditorCountry as "CH" | "LI",
+        country: creditorCountry,
       },
       debtor: {
         name: team.contact_name.substring(0, 70),
@@ -102,8 +123,11 @@ serve(async (req) => {
         city: "",
         country: "CH",
       },
-      message: `Startgeld ${team.tournament.name} - Team ${team.name} - Ref: ${referenceNumber}`.substring(0, 140),
+      reference: referenceNumber,
+      message: `Startgeld ${team.tournament.name} - Team ${team.name}`.substring(0, 140),
     };
+
+    console.log("QR data prepared:", JSON.stringify(qrData, null, 2));
 
     // Generate SVG QR Bill
     const qrBill = new SwissQRBill(qrData);
@@ -202,7 +226,7 @@ serve(async (req) => {
 
   <div class="payment-box">
     <h2 style="margin-top: 0;">Zahlungsdetails</h2>
-    <p class="amount">Startgeld: CHF ${team.tournament.entry_fee.toFixed(2)}</p>
+    <p class="amount">Startgeld: CHF ${entryFee.toFixed(2)}</p>
     <p><strong>Referenznummer:</strong> ${referenceNumber}</p>
     <p style="margin-top: 15px; font-size: 12px; color: #666;">
       Bitte verwenden Sie die unten stehende QR-Rechnung für die Zahlung.
