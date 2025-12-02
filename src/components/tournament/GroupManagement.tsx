@@ -6,7 +6,8 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Plus, Trash2, Users, Shuffle } from "lucide-react";
+import { Plus, Trash2, Users, Shuffle, Edit2, Check, X } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 
 interface GroupManagementProps {
@@ -43,6 +44,8 @@ export default function GroupManagement({ tournamentId }: GroupManagementProps) 
   const [assignments, setAssignments] = useState<Record<string, string | null>>({});
   const [loading, setLoading] = useState(true);
   const [newGroupName, setNewGroupName] = useState("");
+  const [editingGroupId, setEditingGroupId] = useState<string | null>(null);
+  const [editingGroupName, setEditingGroupName] = useState("");
 
   useEffect(() => {
     loadData();
@@ -153,6 +156,44 @@ export default function GroupManagement({ tournamentId }: GroupManagementProps) 
       console.error("Error deleting group:", error);
       toast.error("Fehler beim Löschen der Gruppe");
     }
+  };
+
+  const handleRenameGroup = async (groupId: string) => {
+    if (!editingGroupName.trim()) {
+      toast.error("Bitte gib einen Gruppennamen ein");
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from("tournament_groups")
+        .update({ name: editingGroupName.trim() })
+        .eq("id", groupId);
+
+      if (error) throw error;
+
+      toast.success("Gruppe umbenannt");
+      setEditingGroupId(null);
+      setEditingGroupName("");
+      loadGroupsAndTeams();
+    } catch (error) {
+      console.error("Error renaming group:", error);
+      toast.error("Fehler beim Umbenennen der Gruppe");
+    }
+  };
+
+  const startEditing = (group: Group) => {
+    setEditingGroupId(group.id);
+    setEditingGroupName(group.name);
+  };
+
+  const cancelEditing = () => {
+    setEditingGroupId(null);
+    setEditingGroupName("");
+  };
+
+  const getTeamCountForGroup = (groupId: string): number => {
+    return Object.values(assignments).filter(a => a === groupId).length;
   };
 
   const handleAssignTeam = async (teamId: string, groupId: string) => {
@@ -268,32 +309,70 @@ export default function GroupManagement({ tournamentId }: GroupManagementProps) 
               </div>
 
               <div className="space-y-2">
-                {groups.map((group) => (
-                  <div key={group.id} className="flex items-center justify-between p-3 border rounded-lg">
-                    <span className="font-medium">{group.name}</span>
-                    <AlertDialog>
-                      <AlertDialogTrigger asChild>
-                        <Button variant="ghost" size="sm">
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent>
-                        <AlertDialogHeader>
-                          <AlertDialogTitle>Gruppe löschen?</AlertDialogTitle>
-                          <AlertDialogDescription>
-                            Diese Aktion kann nicht rückgängig gemacht werden. Alle Teamzuweisungen zu dieser Gruppe werden entfernt.
-                          </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel>Abbrechen</AlertDialogCancel>
-                          <AlertDialogAction onClick={() => handleDeleteGroup(group.id)}>
-                            Löschen
-                          </AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
-                  </div>
-                ))}
+                {groups.map((group) => {
+                  const teamCount = getTeamCountForGroup(group.id);
+                  const isEditing = editingGroupId === group.id;
+                  
+                  return (
+                    <div key={group.id} className="flex items-center justify-between p-3 border rounded-lg">
+                      {isEditing ? (
+                        <div className="flex items-center gap-2 flex-1 mr-2">
+                          <Input
+                            value={editingGroupName}
+                            onChange={(e) => setEditingGroupName(e.target.value)}
+                            className="flex-1"
+                            autoFocus
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") handleRenameGroup(group.id);
+                              if (e.key === "Escape") cancelEditing();
+                            }}
+                          />
+                          <Button size="sm" variant="ghost" onClick={() => handleRenameGroup(group.id)}>
+                            <Check className="h-4 w-4 text-green-500" />
+                          </Button>
+                          <Button size="sm" variant="ghost" onClick={cancelEditing}>
+                            <X className="h-4 w-4 text-destructive" />
+                          </Button>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-3">
+                          <span className="font-medium">{group.name}</span>
+                          <Badge variant="secondary" className="text-xs">
+                            {teamCount} {teamCount === 1 ? "Team" : "Teams"}
+                          </Badge>
+                        </div>
+                      )}
+                      {!isEditing && (
+                        <div className="flex items-center gap-1">
+                          <Button variant="ghost" size="sm" onClick={() => startEditing(group)}>
+                            <Edit2 className="h-4 w-4" />
+                          </Button>
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button variant="ghost" size="sm">
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Gruppe löschen?</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  Diese Aktion kann nicht rückgängig gemacht werden. Alle Teamzuweisungen zu dieser Gruppe werden entfernt.
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Abbrechen</AlertDialogCancel>
+                                <AlertDialogAction onClick={() => handleDeleteGroup(group.id)}>
+                                  Löschen
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             </CardContent>
           </Card>
