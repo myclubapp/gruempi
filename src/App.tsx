@@ -14,6 +14,7 @@ import PublicTournaments from "./pages/PublicTournaments";
 import PublicTournamentDetail from "./pages/PublicTournamentDetail";
 import PlayerRegistration from "./pages/PlayerRegistration";
 import RegistrationSuccess from "./pages/RegistrationSuccess";
+import Profile from "./pages/Profile";
 import ProtectedRoute from "./components/ProtectedRoute";
 
 const queryClient = new QueryClient();
@@ -53,6 +54,14 @@ const App = () => (
             element={
               <ProtectedRoute>
                 <TournamentDetail />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/profile"
+            element={
+              <ProtectedRoute>
+                <Profile />
               </ProtectedRoute>
             }
           />

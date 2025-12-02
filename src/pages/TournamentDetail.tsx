@@ -5,9 +5,10 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Globe, Users, Settings as SettingsIcon, Award } from "lucide-react";
+import { ArrowLeft, Globe, Users, Settings as SettingsIcon, Award, CreditCard } from "lucide-react";
 import { toast } from "sonner";
 import DomainSettings from "@/components/tournament/DomainSettings";
+import PaymentSettings from "@/components/tournament/PaymentSettings";
 import SponsorManagement from "@/components/tournament/SponsorManagement";
 
 interface Tournament {
@@ -24,12 +25,22 @@ interface Tournament {
   domain_verification_token: string | null;
   sport_type: string | null;
   registration_deadline: string | null;
+  organizer_id: string;
+  creditor_account: string | null;
+  creditor_name: string | null;
+  creditor_address: string | null;
+  creditor_building_number: string | null;
+  creditor_zip: string | null;
+  creditor_city: string | null;
+  creditor_country: string | null;
+  payment_reference_prefix: string | null;
 }
 
 const TournamentDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const [tournament, setTournament] = useState<Tournament | null>(null);
+  const [organizerProfile, setOrganizerProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -49,9 +60,24 @@ const TournamentDetail = () => {
       console.error("Error loading tournament:", error);
       toast.error("Fehler beim Laden des Turniers: " + error.message);
       navigate("/dashboard");
-    } else {
-      setTournament(data);
+      return;
     }
+
+    setTournament(data);
+    
+    // Load organizer profile
+    if (data?.organizer_id) {
+      const { data: profile, error: profileError } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", data.organizer_id)
+        .single();
+      
+      if (!profileError && profile) {
+        setOrganizerProfile(profile);
+      }
+    }
+    
     setLoading(false);
   };
 
@@ -167,9 +193,10 @@ const TournamentDetail = () => {
         </div>
 
         <Tabs defaultValue="overview" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-5">
+          <TabsList className="grid w-full grid-cols-6">
             <TabsTrigger value="overview">Übersicht</TabsTrigger>
             <TabsTrigger value="teams">Teams</TabsTrigger>
+            <TabsTrigger value="payment">Zahlungen</TabsTrigger>
             <TabsTrigger value="domain">Domain</TabsTrigger>
             <TabsTrigger value="sponsors">Sponsoren</TabsTrigger>
             <TabsTrigger value="settings">Einstellungen</TabsTrigger>
@@ -294,6 +321,14 @@ const TournamentDetail = () => {
                 </div>
               </CardContent>
             </Card>
+          </TabsContent>
+
+          <TabsContent value="payment">
+            <PaymentSettings
+              tournament={tournament}
+              organizerProfile={organizerProfile}
+              onUpdate={loadTournament}
+            />
           </TabsContent>
 
           <TabsContent value="domain">

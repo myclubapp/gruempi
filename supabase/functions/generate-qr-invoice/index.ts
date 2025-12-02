@@ -41,32 +41,58 @@ serve(async (req) => {
       throw new Error(`Team not found: ${teamError?.message}`);
     }
 
+    // Fetch organizer profile for default creditor information
+    const { data: profile, error: profileError } = await supabaseClient
+      .from("profiles")
+      .select("*")
+      .eq("id", team.tournament.organizer_id)
+      .single();
+
+    if (profileError || !profile) {
+      console.warn("Could not load organizer profile:", profileError);
+    }
+
+    // Use tournament-specific creditor info if available, otherwise fall back to profile
+    const creditorAccount = team.tournament.creditor_account || profile?.creditor_account;
+    const creditorName = team.tournament.creditor_name || profile?.full_name || team.tournament.name;
+    const creditorAddress = team.tournament.creditor_address || profile?.creditor_address || "";
+    const creditorBuildingNumber = team.tournament.creditor_building_number || profile?.creditor_building_number || "";
+    const creditorZip = team.tournament.creditor_zip || profile?.creditor_zip || "";
+    const creditorCity = team.tournament.creditor_city || profile?.creditor_city || "";
+    const creditorCountry = team.tournament.creditor_country || profile?.creditor_country || "CH";
+
+    if (!creditorAccount) {
+      throw new Error("Keine Creditor-Informationen verfügbar. Bitte Profil oder Turnier-Einstellungen aktualisieren.");
+    }
+
     // Generate 27-character QR reference number
-    // Format: tournament part (8) + team part (8) + sequential (9) + check digit (2)
-    const tournamentPart = team.tournament.id.substring(0, 8).replace(/-/g, "");
-    const teamPart = team_id.substring(0, 8).replace(/-/g, "");
-    const sequentialPart = String(Date.now()).slice(-9); // Last 9 digits of timestamp
+    // Format: prefix (if provided) + tournament part + team part + sequential + check digit
+    const referencePrefix = team.tournament.payment_reference_prefix || "";
+    const tournamentPart = team.tournament.id.substring(0, 6).replace(/-/g, "");
+    const teamPart = team_id.substring(0, 6).replace(/-/g, "");
+    const sequentialPart = String(Date.now()).slice(-7); // Last 7 digits of timestamp
     
-    // Combine to 25 characters (we'll add 2-digit check digit)
-    const baseReference = `${tournamentPart}${teamPart}${sequentialPart}`;
+    // Combine parts (ensuring we don't exceed 25 characters before check digit)
+    const baseParts = `${referencePrefix}${tournamentPart}${teamPart}${sequentialPart}`;
+    const baseReference = baseParts.substring(0, 25);
     
     // Calculate modulo 97 check digit for QR-Reference (ISO 11649)
     const numericRef = baseReference.replace(/[A-Z]/gi, (c) => String(c.charCodeAt(0) - 55));
     const checkDigit = Number(98n - (BigInt(numericRef + "00") % 97n));
     const referenceNumber = baseReference + String(checkDigit).padStart(2, "0");
 
-    // Swiss QR Bill data (without reference for regular IBAN)
+    // Swiss QR Bill data using configured creditor information
     const qrData = {
       amount: team.tournament.entry_fee,
       currency: "CHF" as "CHF" | "EUR",
       creditor: {
-        account: "CH44 3199 9123 0008 8901 2", // TODO: Replace with actual tournament organizer account
-        name: team.tournament.name.substring(0, 70), // Max 70 characters
-        address: team.tournament.location.substring(0, 70),
-        buildingNumber: "",
-        zip: 8000,
-        city: team.tournament.location.substring(0, 35),
-        country: "CH",
+        account: creditorAccount,
+        name: creditorName.substring(0, 70), // Max 70 characters
+        address: creditorAddress.substring(0, 70),
+        buildingNumber: creditorBuildingNumber.substring(0, 16),
+        zip: creditorZip ? parseInt(creditorZip) : 0,
+        city: creditorCity.substring(0, 35),
+        country: creditorCountry as "CH" | "LI",
       },
       debtor: {
         name: team.contact_name.substring(0, 70),
