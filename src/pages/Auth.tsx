@@ -68,12 +68,12 @@ const Auth = () => {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-hero px-4">
       <div className="w-full max-w-md">
-        <div className="flex items-center justify-center gap-2 mb-8">
-          <div className="w-12 h-12 rounded-lg bg-primary-foreground/10 backdrop-blur-sm flex items-center justify-center">
-            <Trophy className="w-7 h-7 text-primary-foreground" />
+          <div className="flex items-center gap-2">
+            <div className="w-12 h-12 rounded-lg bg-primary-foreground/10 backdrop-blur-sm flex items-center justify-center">
+              <Trophy className="w-7 h-7 text-primary-foreground" />
+            </div>
+            <span className="text-3xl font-bold text-primary-foreground">Grümpi</span>
           </div>
-          <span className="text-3xl font-bold text-primary-foreground">TourneyHub</span>
-        </div>
 
         <Card className="border-primary-foreground/20 bg-card/95 backdrop-blur-sm">
           <CardHeader>

@@ -124,6 +124,47 @@ export type Database = {
         }
         Relationships: []
       }
+      sponsors: {
+        Row: {
+          created_at: string | null
+          display_order: number | null
+          id: string
+          logo_url: string | null
+          name: string
+          tier: string
+          tournament_id: string
+          website_url: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          display_order?: number | null
+          id?: string
+          logo_url?: string | null
+          name: string
+          tier?: string
+          tournament_id: string
+          website_url?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          display_order?: number | null
+          id?: string
+          logo_url?: string | null
+          name?: string
+          tier?: string
+          tournament_id?: string
+          website_url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sponsors_tournament_id_fkey"
+            columns: ["tournament_id"]
+            isOneToOne: false
+            referencedRelation: "tournaments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       team_players: {
         Row: {
           created_at: string | null
@@ -323,8 +364,11 @@ export type Database = {
       tournaments: {
         Row: {
           created_at: string | null
+          custom_domain: string | null
           date: string
           description: string | null
+          domain_status: string | null
+          domain_verification_token: string | null
           entry_fee: number
           id: string
           location: string
@@ -337,8 +381,11 @@ export type Database = {
         }
         Insert: {
           created_at?: string | null
+          custom_domain?: string | null
           date: string
           description?: string | null
+          domain_status?: string | null
+          domain_verification_token?: string | null
           entry_fee?: number
           id?: string
           location: string
@@ -351,8 +398,11 @@ export type Database = {
         }
         Update: {
           created_at?: string | null
+          custom_domain?: string | null
           date?: string
           description?: string | null
+          domain_status?: string | null
+          domain_verification_token?: string | null
           entry_fee?: number
           id?: string
           location?: string
@@ -378,7 +428,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      generate_verification_token: { Args: never; Returns: string }
     }
     Enums: {
       [_ in never]: never

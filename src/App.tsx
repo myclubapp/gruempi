@@ -8,6 +8,7 @@ import NotFound from "./pages/NotFound";
 import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
 import CreateTournament from "./pages/CreateTournament";
+import TournamentDetail from "./pages/TournamentDetail";
 import ProtectedRoute from "./components/ProtectedRoute";
 
 const queryClient = new QueryClient();
@@ -34,6 +35,14 @@ const App = () => (
             element={
               <ProtectedRoute>
                 <CreateTournament />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/dashboard/tournament/:id"
+            element={
+              <ProtectedRoute>
+                <TournamentDetail />
               </ProtectedRoute>
             }
           />
