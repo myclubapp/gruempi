@@ -86,7 +86,8 @@ serve(async (req) => {
     if (action === 'get-config') {
       console.log(`[manage-vercel-domain] Getting config for domain ${domain}`);
       
-      const response = await fetch(
+      // Get project domain info
+      const domainResponse = await fetch(
         `https://api.vercel.com/v9/projects/${VERCEL_PROJECT_ID}/domains/${domain}${getTeamParam()}`,
         {
           method: 'GET',
@@ -94,47 +95,86 @@ serve(async (req) => {
         }
       );
 
-      const data = await response.json();
-      console.log('[manage-vercel-domain] Get config response:', JSON.stringify(data));
+      const domainData = await domainResponse.json();
+      console.log('[manage-vercel-domain] Get domain response:', JSON.stringify(domainData));
 
-      if (!response.ok) {
+      if (!domainResponse.ok) {
         return new Response(JSON.stringify({ 
-          error: data.error?.message || 'Domain nicht gefunden',
-          details: data 
+          error: domainData.error?.message || 'Domain nicht gefunden',
+          details: domainData 
         }), {
-          status: response.status,
+          status: domainResponse.status,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
 
-      // Build DNS configuration instructions
-      const dnsConfig = {
-        domain: data.name,
-        verified: data.verified,
-        configured: data.verification?.length === 0,
-        verification: data.verification || [],
-        // Standard Vercel DNS records
-        records: [
-          {
+      // Get actual DNS configuration recommendations from Vercel
+      const configResponse = await fetch(
+        `https://api.vercel.com/v6/domains/${domain}/config${getTeamParam()}`,
+        {
+          method: 'GET',
+          headers,
+        }
+      );
+
+      const configData = await configResponse.json();
+      console.log('[manage-vercel-domain] Get DNS config response:', JSON.stringify(configData));
+
+      // Build DNS configuration instructions with actual values from API
+      const records: Array<{type: string; name: string; value: string; description: string}> = [];
+
+      // Add A record (use recommended or fallback)
+      if (configData.recommendedIPv4 && configData.recommendedIPv4.length > 0) {
+        const ipValues = configData.recommendedIPv4[0].value;
+        if (Array.isArray(ipValues) && ipValues.length > 0) {
+          records.push({
             type: 'A',
-            name: data.name,
-            value: '76.76.21.21',
+            name: domain,
+            value: ipValues[0],
             description: 'Vercel A Record'
-          },
-          {
-            type: 'CNAME',
-            name: `www.${data.name}`,
-            value: 'cname.vercel-dns.com',
-            description: 'Vercel CNAME für www'
-          }
-        ]
-      };
+          });
+        }
+      }
+      // Fallback if no recommended IP
+      if (records.length === 0) {
+        records.push({
+          type: 'A',
+          name: domain,
+          value: '76.76.21.21',
+          description: 'Vercel A Record'
+        });
+      }
+
+      // Add CNAME record with actual value from API
+      if (configData.recommendedCNAME && configData.recommendedCNAME.length > 0 && configData.recommendedCNAME[0].value) {
+        records.push({
+          type: 'CNAME',
+          name: `www.${domain}`,
+          value: configData.recommendedCNAME[0].value,
+          description: 'Vercel CNAME für www'
+        });
+      } else if (configData.cnames && configData.cnames.length > 0) {
+        records.push({
+          type: 'CNAME',
+          name: `www.${domain}`,
+          value: configData.cnames[0],
+          description: 'Vercel CNAME für www'
+        });
+      } else {
+        // Fallback to generic CNAME
+        records.push({
+          type: 'CNAME',
+          name: `www.${domain}`,
+          value: 'cname.vercel-dns.com',
+          description: 'Vercel CNAME für www'
+        });
+      }
 
       // Add verification TXT record if needed
-      if (data.verification && data.verification.length > 0) {
-        data.verification.forEach((v: any) => {
+      if (domainData.verification && domainData.verification.length > 0) {
+        domainData.verification.forEach((v: any) => {
           if (v.type === 'TXT') {
-            dnsConfig.records.push({
+            records.push({
               type: 'TXT',
               name: v.domain,
               value: v.value,
@@ -144,10 +184,20 @@ serve(async (req) => {
         });
       }
 
+      const dnsConfig = {
+        domain: domainData.name,
+        verified: domainData.verified,
+        configured: configData.misconfigured === false,
+        misconfigured: configData.misconfigured,
+        configuredBy: configData.configuredBy,
+        verification: domainData.verification || [],
+        records
+      };
+
       return new Response(JSON.stringify({ 
         success: true, 
         config: dnsConfig,
-        raw: data
+        raw: { domain: domainData, dnsConfig: configData }
       }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
