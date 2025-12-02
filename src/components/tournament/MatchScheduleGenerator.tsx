@@ -111,6 +111,8 @@ export default function MatchScheduleGenerator({ tournamentId }: MatchScheduleGe
     setValidationErrors([]);
 
     try {
+      // Delete existing matches first
+      await supabase.from("matches").delete().eq("tournament_id", tournamentId);
       // Load groups and team assignments
       const { data: groups, error: groupsError } = await supabase
         .from("tournament_groups")
@@ -261,9 +263,6 @@ export default function MatchScheduleGenerator({ tournamentId }: MatchScheduleGe
 
     setLoading(true);
     try {
-      // Delete existing matches
-      await supabase.from("matches").delete().eq("tournament_id", tournamentId);
-
       // Insert new matches
       const matchesToInsert = previewMatches.map((m) => ({
         tournament_id: tournamentId,
