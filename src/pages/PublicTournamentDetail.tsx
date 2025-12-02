@@ -36,6 +36,7 @@ interface Category {
   max_players: number;
   min_teams: number | null;
   max_teams: number | null;
+  entry_fee: number;
 }
 
 interface Sponsor {
