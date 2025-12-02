@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, Calendar, MapPin, Clock, FileText, Award } from "lucide-react";
 import { toast } from "sonner";
-import ModernNavigation from "@/components/ModernNavigation";
+import SimplifiedNavigation from "@/components/SimplifiedNavigation";
 import ModernFooter from "@/components/ModernFooter";
 import TeamRegistrationForm from "@/components/tournament/TeamRegistrationForm";
 
@@ -122,7 +122,7 @@ const PublicTournamentDetail = () => {
   if (loading) {
   return (
     <div className="min-h-screen bg-background">
-      <ModernNavigation />
+      <SimplifiedNavigation />
         <div className="container mx-auto px-4 py-12 flex items-center justify-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
         </div>
@@ -144,7 +144,7 @@ const PublicTournamentDetail = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <ModernNavigation />
+      <SimplifiedNavigation />
       
       <main className="container mx-auto px-4 py-8">
         <Button
@@ -303,12 +303,12 @@ const PublicTournamentDetail = () => {
         </div>
 
         {/* Sponsors */}
-        {sponsors.length > 0 && (
-          <Card className="mb-8">
-            <CardHeader>
-              <CardTitle>Sponsoren</CardTitle>
-            </CardHeader>
-            <CardContent>
+        <Card className="mb-8">
+          <CardHeader>
+            <CardTitle>Sponsoren</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {sponsors.length > 0 ? (
               <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
                 {sponsors.map((sponsor) => (
                   <div
@@ -328,9 +328,18 @@ const PublicTournamentDetail = () => {
                   </div>
                 ))}
               </div>
-            </CardContent>
-          </Card>
-        )}
+            ) : (
+              <div className="text-center py-8">
+                <p className="text-lg text-muted-foreground mb-4">
+                  Noch keine Sponsoren
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  Turniersponsor werden?
+                </p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
         {/* Registration CTA */}
         {isRegistrationOpen() ? (
