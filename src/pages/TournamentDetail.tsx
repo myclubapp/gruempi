@@ -344,9 +344,10 @@ const TournamentDetail = () => {
         </div>
 
         <Tabs defaultValue="overview" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-7">
+          <TabsList className="grid w-full grid-cols-8">
             <TabsTrigger value="overview">Übersicht</TabsTrigger>
             <TabsTrigger value="teams">Teams</TabsTrigger>
+            <TabsTrigger value="groups">Gruppen</TabsTrigger>
             <TabsTrigger value="schedule">Spielplan</TabsTrigger>
             <TabsTrigger value="payment">Zahlungen</TabsTrigger>
             <TabsTrigger value="domain">Domain</TabsTrigger>
@@ -575,60 +576,46 @@ const TournamentDetail = () => {
             )}
           </TabsContent>
 
+          <TabsContent value="groups" className="space-y-6">
+            <GroupManagement tournamentId={id!} />
+          </TabsContent>
+
           <TabsContent value="schedule" className="space-y-6">
-            <Tabs defaultValue="config" className="w-full">
-              <TabsList>
-                <TabsTrigger value="config">Konfiguration</TabsTrigger>
-                <TabsTrigger value="groups">Gruppen</TabsTrigger>
-                <TabsTrigger value="matches">Spielplan</TabsTrigger>
-              </TabsList>
-
-              <TabsContent value="config" className="space-y-6 mt-6">
-                <ScheduleConfig tournamentId={id!} />
-              </TabsContent>
-
-              <TabsContent value="groups" className="space-y-6 mt-6">
-                <GroupManagement tournamentId={id!} />
-              </TabsContent>
-
-              <TabsContent value="matches" className="space-y-6 mt-6">
-                <MatchScheduleGenerator tournamentId={id!} />
-                
-                {categories.length > 0 && (
-                  <Card className="mt-6">
-                    <CardHeader>
-                      <CardTitle>Spielpläne & Resultate</CardTitle>
-                      <CardDescription>
-                        Verwalten Sie Spielpläne und erfassen Sie Resultate
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      <Tabs defaultValue={categories[0]?.id || ""}>
-                        <TabsList className="grid w-full" style={{ gridTemplateColumns: `repeat(${categories.length}, minmax(0, 1fr))` }}>
-                          {categories.map((category) => (
-                            <TabsTrigger key={category.id} value={category.id}>
-                              {category.name}
-                            </TabsTrigger>
-                          ))}
-                        </TabsList>
-                        {categories.map((category) => (
-                          <TabsContent key={category.id} value={category.id} className="mt-6 space-y-8">
-                            <div>
-                              <h3 className="text-xl font-semibold mb-4">Tabelle</h3>
-                              <StandingsTable tournamentId={id!} categoryId={category.id} />
-                            </div>
-                            <div>
-                              <h3 className="text-xl font-semibold mb-4">Spielplan & Resultate</h3>
-                              <MatchList tournamentId={id!} categoryId={category.id} isAdmin={true} />
-                            </div>
-                          </TabsContent>
-                        ))}
-                      </Tabs>
-                    </CardContent>
-                  </Card>
-                )}
-              </TabsContent>
-            </Tabs>
+            <MatchScheduleGenerator tournamentId={id!} />
+            
+            {categories.length > 0 && (
+              <Card className="mt-6">
+                <CardHeader>
+                  <CardTitle>Spielpläne & Resultate</CardTitle>
+                  <CardDescription>
+                    Verwalten Sie Spielpläne und erfassen Sie Resultate
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Tabs defaultValue={categories[0]?.id || ""}>
+                    <TabsList className="grid w-full" style={{ gridTemplateColumns: `repeat(${categories.length}, minmax(0, 1fr))` }}>
+                      {categories.map((category) => (
+                        <TabsTrigger key={category.id} value={category.id}>
+                          {category.name}
+                        </TabsTrigger>
+                      ))}
+                    </TabsList>
+                    {categories.map((category) => (
+                      <TabsContent key={category.id} value={category.id} className="mt-6 space-y-8">
+                        <div>
+                          <h3 className="text-xl font-semibold mb-4">Tabelle</h3>
+                          <StandingsTable tournamentId={id!} categoryId={category.id} />
+                        </div>
+                        <div>
+                          <h3 className="text-xl font-semibold mb-4">Spielplan & Resultate</h3>
+                          <MatchList tournamentId={id!} categoryId={category.id} isAdmin={true} />
+                        </div>
+                      </TabsContent>
+                    ))}
+                  </Tabs>
+                </CardContent>
+              </Card>
+            )}
           </TabsContent>
 
           <TabsContent value="payment">
@@ -650,7 +637,8 @@ const TournamentDetail = () => {
             <SponsorManagement tournamentId={tournament.id} />
           </TabsContent>
 
-          <TabsContent value="settings">
+          <TabsContent value="settings" className="space-y-6">
+            <ScheduleConfig tournamentId={id!} />
             <TournamentSettings
               tournament={tournament}
               onUpdate={loadTournament}
