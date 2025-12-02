@@ -30,6 +30,9 @@ const CreateTournament = () => {
     terms_and_conditions: "",
   });
 
+  const [rulesPdf, setRulesPdf] = useState<File | null>(null);
+  const [termsPdf, setTermsPdf] = useState<File | null>(null);
+
   const [categories, setCategories] = useState<Category[]>([
     {
       name: "Sportler/innen",
@@ -52,6 +55,40 @@ const CreateTournament = () => {
         return;
       }
 
+      let rulesPdfUrl = null;
+      let termsPdfUrl = null;
+
+      // Upload PDFs if provided
+      if (rulesPdf) {
+        const fileName = `${user.id}/${Date.now()}_rules_${rulesPdf.name}`;
+        const { data: rulesUpload, error: rulesError } = await supabase.storage
+          .from("tournament-documents")
+          .upload(fileName, rulesPdf);
+
+        if (rulesError) throw rulesError;
+        
+        const { data: { publicUrl } } = supabase.storage
+          .from("tournament-documents")
+          .getPublicUrl(fileName);
+        
+        rulesPdfUrl = publicUrl;
+      }
+
+      if (termsPdf) {
+        const fileName = `${user.id}/${Date.now()}_terms_${termsPdf.name}`;
+        const { data: termsUpload, error: termsError } = await supabase.storage
+          .from("tournament-documents")
+          .upload(fileName, termsPdf);
+
+        if (termsError) throw termsError;
+        
+        const { data: { publicUrl } } = supabase.storage
+          .from("tournament-documents")
+          .getPublicUrl(fileName);
+        
+        termsPdfUrl = publicUrl;
+      }
+
       // Create tournament
       const { data: tournament, error: tournamentError } = await supabase
         .from("tournaments")
@@ -64,6 +101,8 @@ const CreateTournament = () => {
           description: formData.description,
           rules: formData.rules,
           terms_and_conditions: formData.terms_and_conditions,
+          rules_pdf_url: rulesPdfUrl,
+          terms_pdf_url: termsPdfUrl,
           status: "draft",
         })
         .select()
@@ -322,7 +361,7 @@ const CreateTournament = () => {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="rules">Turnierregeln</Label>
+                <Label htmlFor="rules">Turnierregeln (Text)</Label>
                 <Textarea
                   id="rules"
                   value={formData.rules}
@@ -333,7 +372,20 @@ const CreateTournament = () => {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="terms">Teilnahmebedingungen (AGB)</Label>
+                <Label htmlFor="rulesPdf">Turnierregeln (PDF) - Optional</Label>
+                <Input
+                  id="rulesPdf"
+                  type="file"
+                  accept=".pdf"
+                  onChange={(e) => setRulesPdf(e.target.files?.[0] || null)}
+                />
+                <p className="text-sm text-muted-foreground">
+                  PDF wird bei der Anmeldung separat zum Akzeptieren angezeigt
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="terms">Teilnahmebedingungen (Text)</Label>
                 <Textarea
                   id="terms"
                   value={formData.terms_and_conditions}
@@ -343,6 +395,19 @@ const CreateTournament = () => {
                   placeholder="z.B. Haftungsausschluss, Versicherung..."
                   rows={5}
                 />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="termsPdf">Teilnahmebedingungen (PDF) - Optional</Label>
+                <Input
+                  id="termsPdf"
+                  type="file"
+                  accept=".pdf"
+                  onChange={(e) => setTermsPdf(e.target.files?.[0] || null)}
+                />
+                <p className="text-sm text-muted-foreground">
+                  PDF wird bei der Anmeldung separat zum Akzeptieren angezeigt
+                </p>
               </div>
             </CardContent>
           </Card>
