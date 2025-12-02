@@ -15,6 +15,9 @@ import DomainSettings from "@/components/tournament/DomainSettings";
 import PaymentSettings from "@/components/tournament/PaymentSettings";
 import SponsorManagement from "@/components/tournament/SponsorManagement";
 import TournamentSettings from "@/components/tournament/TournamentSettings";
+import ScheduleConfig from "@/components/tournament/ScheduleConfig";
+import GroupManagement from "@/components/tournament/GroupManagement";
+import MatchScheduleGenerator from "@/components/tournament/MatchScheduleGenerator";
 
 interface Tournament {
   id: string;
@@ -330,9 +333,10 @@ const TournamentDetail = () => {
         </div>
 
         <Tabs defaultValue="overview" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-6">
+          <TabsList className="grid w-full grid-cols-7">
             <TabsTrigger value="overview">Übersicht</TabsTrigger>
             <TabsTrigger value="teams">Teams</TabsTrigger>
+            <TabsTrigger value="schedule">Spielplan</TabsTrigger>
             <TabsTrigger value="payment">Zahlungen</TabsTrigger>
             <TabsTrigger value="domain">Domain</TabsTrigger>
             <TabsTrigger value="sponsors">Sponsoren</TabsTrigger>
@@ -558,6 +562,28 @@ const TournamentDetail = () => {
                 })}
               </div>
             )}
+          </TabsContent>
+
+          <TabsContent value="schedule" className="space-y-6">
+            <Tabs defaultValue="config" className="w-full">
+              <TabsList>
+                <TabsTrigger value="config">Konfiguration</TabsTrigger>
+                <TabsTrigger value="groups">Gruppen</TabsTrigger>
+                <TabsTrigger value="matches">Spielplan</TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="config" className="space-y-6 mt-6">
+                <ScheduleConfig tournamentId={id!} />
+              </TabsContent>
+
+              <TabsContent value="groups" className="space-y-6 mt-6">
+                <GroupManagement tournamentId={id!} />
+              </TabsContent>
+
+              <TabsContent value="matches" className="space-y-6 mt-6">
+                <MatchScheduleGenerator tournamentId={id!} />
+              </TabsContent>
+            </Tabs>
           </TabsContent>
 
           <TabsContent value="payment">

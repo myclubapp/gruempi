@@ -183,6 +183,42 @@ export type Database = {
           },
         ]
       }
+      team_group_assignments: {
+        Row: {
+          created_at: string | null
+          group_id: string
+          id: string
+          team_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          group_id: string
+          id?: string
+          team_id: string
+        }
+        Update: {
+          created_at?: string | null
+          group_id?: string
+          id?: string
+          team_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "team_group_assignments_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "tournament_groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "team_group_assignments_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: true
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       team_players: {
         Row: {
           created_at: string | null
@@ -386,6 +422,50 @@ export type Database = {
             foreignKeyName: "tournament_groups_tournament_id_fkey"
             columns: ["tournament_id"]
             isOneToOne: false
+            referencedRelation: "tournaments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tournament_schedule_config: {
+        Row: {
+          break_duration_minutes: number
+          created_at: string | null
+          id: string
+          ko_phase_teams: number | null
+          match_duration_minutes: number
+          number_of_fields: number
+          ranking_mode: string
+          tournament_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          break_duration_minutes?: number
+          created_at?: string | null
+          id?: string
+          ko_phase_teams?: number | null
+          match_duration_minutes?: number
+          number_of_fields?: number
+          ranking_mode?: string
+          tournament_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          break_duration_minutes?: number
+          created_at?: string | null
+          id?: string
+          ko_phase_teams?: number | null
+          match_duration_minutes?: number
+          number_of_fields?: number
+          ranking_mode?: string
+          tournament_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tournament_schedule_config_tournament_id_fkey"
+            columns: ["tournament_id"]
+            isOneToOne: true
             referencedRelation: "tournaments"
             referencedColumns: ["id"]
           },
