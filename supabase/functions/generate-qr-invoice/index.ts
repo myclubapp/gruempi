@@ -1,34 +1,17 @@
 // deno-lint-ignore-file no-explicit-any
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
-import { PDFDocument, rgb, StandardFonts } from "https://esm.sh/pdf-lib@1.17.1";
-import { parseHTML } from "https://esm.sh/linkedom@0.16.8";
-import { initialize, svg2png } from "https://esm.sh/svg2png-wasm@1.4.1";
 
-// Setup DOM globals for swissqrbill
-const dom = parseHTML('<!DOCTYPE html><html><body></body></html>');
-// @ts-ignore: Setting global for swissqrbill
-globalThis.document = dom.document;
-// @ts-ignore: Setting global for swissqrbill
-globalThis.SVGElement = dom.SVGElement;
-
-// Now import swissqrbill after DOM is set up
-const { SwissQRBill } = await import("https://esm.sh/swissqrbill@4.2.1/svg");
+// Import pdfkit and swissqrbill/pdf
+const PDFDocument = (await import("https://esm.sh/pdfkit@0.15.0")).default;
+const { SwissQRBill } = await import("https://esm.sh/swissqrbill@4.2.1/pdf");
+const { mm2pt } = await import("https://esm.sh/swissqrbill@4.2.1/utils");
+const { Table } = await import("https://esm.sh/swissqrbill@4.2.1/pdf");
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
-
-// Initialize svg2png-wasm
-let wasmInitialized = false;
-
-async function initWasm() {
-  if (!wasmInitialized) {
-    await initialize(fetch("https://unpkg.com/svg2png-wasm@1.4.1/svg2png_wasm_bg.wasm"));
-    wasmInitialized = true;
-  }
-}
 
 // Calculate modulo 10 recursive checksum for QR reference
 function calculateMod10Recursive(ref: string): number {
@@ -57,13 +40,13 @@ function hexToNumeric(hex: string): string {
 function generateQRReference(tournamentId: string, teamId: string): string {
   const tournamentNumeric = hexToNumeric(tournamentId);
   const teamNumeric = hexToNumeric(teamId);
-  
+
   const tournamentPart = tournamentNumeric.substring(0, 13);
   const teamPart = teamNumeric.substring(0, 13);
-  
+
   let base = (tournamentPart + teamPart).substring(0, 26);
   base = base.padStart(26, '0');
-  
+
   const checkDigit = calculateMod10Recursive(base);
   return base + String(checkDigit);
 }
@@ -76,16 +59,11 @@ function formatReference(ref: string): string {
 // Format date in German Swiss format
 function formatDate(dateStr: string): string {
   const date = new Date(dateStr);
-  return date.toLocaleDateString("de-CH", { 
+  return date.toLocaleDateString("de-CH", {
     day: 'numeric',
-    month: 'long', 
-    year: 'numeric' 
+    month: 'long',
+    year: 'numeric'
   });
-}
-
-// Convert mm to PDF points (1mm = 2.835 points)
-function mm2pt(mm: number): number {
-  return mm * 2.835;
 }
 
 serve(async (req) => {
@@ -106,9 +84,6 @@ serve(async (req) => {
     }
 
     console.log("Generating QR invoice PDF for team:", team_id);
-
-    // Initialize WASM for SVG to PNG conversion
-    await initWasm();
 
     // Fetch team with tournament and category details
     const { data: team, error: teamError } = await supabaseClient
@@ -163,7 +138,7 @@ serve(async (req) => {
         account: creditorAccount.replace(/\s/g, ''),
         name: creditorName,
         address: creditorAddress,
-        buildingNumber: creditorBuildingNumber ? String(creditorBuildingNumber) : undefined,
+        buildingNumber: creditorBuildingNumber ? String(creditorBuildingNumber) : "",
         zip: parseInt(creditorZip) || 0,
         city: creditorCity,
         country: creditorCountry
@@ -172,115 +147,235 @@ serve(async (req) => {
       debtor: {
         name: team.contact_name,
         address: "",
+        buildingNumber: "",
         zip: 0,
-        city: "",
+        city: creditorCity,
         country: "CH"
       },
       reference: referenceNumber,
-      message: `Startgeld ${team.tournament.name} - Team ${team.name}`
+      message: `Startgeld ${team.tournament.name} - Team ${team.name}`,
+      additionalInformation: formatReference(referenceNumber)
     };
 
-    console.log("Creating Swiss QR Bill SVG...");
+    console.log("Creating PDF with SwissQRBill...");
 
-    // Generate Swiss QR Bill as SVG using swissqrbill library
-    const qrBillSvg = new SwissQRBill(qrBillData);
-    const svgString = qrBillSvg.toString();
-    
-    console.log("SVG generated, length:", svgString.length);
+    // Fetch logo first if available
+    const logoUrl = team.tournament.logo_url || 'https://gruempi.my-club.app/lovable-uploads/d9a44f4c-e31a-4dea-bcb8-0ab0cca64b27.png';
+    let logoBuffer: Uint8Array | undefined = undefined;
 
-    // Convert SVG to PNG
-    const pngData = await svg2png(svgString, {
-      scale: 2, // Higher quality
-      width: 595, // A4 width in pixels at 72 DPI
-    });
-
-    console.log("PNG generated, size:", pngData.length);
-
-    // Create PDF document
-    const pdfDoc = await PDFDocument.create();
-    const page = pdfDoc.addPage([595.28, 841.89]); // A4 size in points
-    
-    const helvetica = await pdfDoc.embedFont(StandardFonts.Helvetica);
-    const helveticaBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
-
-    const { height } = page.getSize();
-
-    // Helper function to draw text (PDF coordinates start from bottom)
-    const drawText = (text: string, x: number, y: number, options: { font?: typeof helvetica; size?: number; color?: ReturnType<typeof rgb> } = {}) => {
-      page.drawText(text, {
-        x: mm2pt(x),
-        y: height - mm2pt(y),
-        size: options.size || 11,
-        font: options.font || helvetica,
-        color: options.color || rgb(0, 0, 0),
-      });
-    };
-
-    // === Invoice Header ===
-    
-    // Creditor address (top left)
-    const creditorFullAddress = `${creditorName}\n${creditorAddress}${creditorBuildingNumber ? ' ' + creditorBuildingNumber : ''}\n${creditorZip} ${creditorCity}`;
-    let yPos = 35;
-    for (const line of creditorFullAddress.split('\n')) {
-      drawText(line, 20, yPos, { size: 12 });
-      yPos += 5;
+    if (logoUrl) {
+      try {
+        const response = await fetch(logoUrl);
+        if (response.ok) {
+          logoBuffer = new Uint8Array(await response.arrayBuffer());
+        }
+      } catch (err) {
+        console.warn("Could not fetch logo:", err);
+      }
     }
 
-    // Debtor address (top right)
-    drawText(team.contact_name, 130, 60, { size: 12 });
-    drawText(team.contact_email, 130, 66, { size: 11 });
+    // Generate PDF using PDFKit and SwissQRBill
+    const pdfBuffer: Uint8Array = await new Promise((resolve, reject) => {
+      const pdf = new PDFDocument({ size: 'A4' });
+      const qrBill = new SwissQRBill(qrBillData);
+      const chunks: Uint8Array[] = [];
 
-    // Title
-    drawText("Rechnung - Turnieranmeldung", 20, 100, { font: helveticaBold, size: 14 });
+      // Attach QR bill to PDF (this adds it at the bottom)
+      qrBill.attachTo(pdf);
 
-    // Date
-    const today = new Date();
-    const dateStr = `${creditorCity}, ${today.getDate()}.${today.getMonth() + 1}.${today.getFullYear()}`;
-    drawText(dateStr, 140, 100, { size: 11 });
+      // Add logo if available
+      if (logoBuffer) {
+        try {
+          pdf.image(logoBuffer, mm2pt(20), mm2pt(5), { width: mm2pt(30) });
+        } catch (err) {
+          console.warn("Could not add logo:", err);
+        }
+      }
 
-    // Tournament info
-    drawText("Turnier", 20, 120, { font: helveticaBold, size: 12 });
-    drawText(team.tournament.name, 20, 128, { size: 11 });
-    drawText(`Datum: ${formatDate(team.tournament.date)}`, 20, 135, { size: 11 });
-    drawText(`Ort: ${team.tournament.location}`, 20, 142, { size: 11 });
+      // Add creditor address (top left)
+      pdf.fontSize(12);
+      pdf.fillColor('black');
+      pdf.font('Helvetica');
+      pdf.text(
+        `${qrBillData.creditor.name}\n${qrBillData.creditor.address} ${qrBillData.creditor.buildingNumber}\n${qrBillData.creditor.zip} ${qrBillData.creditor.city}`,
+        mm2pt(20),
+        mm2pt(40),
+        {
+          align: 'left',
+          height: mm2pt(50),
+          width: mm2pt(100),
+        }
+      );
 
-    // Team info
-    drawText("Team", 20, 155, { font: helveticaBold, size: 12 });
-    drawText(`Teamname: ${team.name}`, 20, 163, { size: 11 });
-    drawText(`Kategorie: ${team.category?.name || 'N/A'}`, 20, 170, { size: 11 });
-    drawText(`Kontaktperson: ${team.contact_name}`, 20, 177, { size: 11 });
+      // Add debtor address (top right)
+      pdf.fontSize(12);
+      pdf.font('Helvetica');
+      pdf.text(
+        `${qrBillData.debtor.name}\n${team.contact_email}`,
+        mm2pt(130),
+        mm2pt(60),
+        {
+          align: 'left',
+          height: mm2pt(50),
+          width: mm2pt(70),
+        }
+      );
 
-    // Payment summary
-    drawText("Rechnungsbetrag", 20, 195, { font: helveticaBold, size: 12 });
-    drawText(`CHF ${entryFee.toFixed(2)}`, 140, 195, { font: helveticaBold, size: 14 });
+      // Create title
+      pdf.fontSize(14);
+      pdf.font('Helvetica-Bold');
+      pdf.text(
+        `Rechnung Nr. ${formatReference(referenceNumber)}`,
+        mm2pt(20),
+        mm2pt(100),
+        {
+          align: 'left',
+          width: mm2pt(170),
+        }
+      );
 
-    drawText(`Referenznummer: ${formatReference(referenceNumber)}`, 20, 205, { size: 9, color: rgb(0.4, 0.4, 0.4) });
+      // Add date
+      const date = new Date();
+      pdf.fontSize(11);
+      pdf.font('Helvetica');
+      pdf.text(
+        `${qrBillData.creditor.city}, ${date.getDate()}.${date.getMonth() + 1}.${date.getFullYear()}`,
+        {
+          align: 'right',
+          width: mm2pt(170),
+        }
+      );
 
-    // === Swiss QR Bill Section (bottom of page) ===
-    // Embed the QR Bill PNG at the bottom of the page
-    // The QR bill is 210mm wide x 105mm tall (A4 width x payment slip height)
-    
-    const qrBillImage = await pdfDoc.embedPng(pngData);
-    const qrBillHeight = mm2pt(105); // Standard QR bill height
-    const qrBillWidth = 595.28; // Full page width
-    
-    page.drawImage(qrBillImage, {
-      x: 0,
-      y: 0, // Bottom of page
-      width: qrBillWidth,
-      height: qrBillHeight,
+      // Add table with invoice items
+      const invoicePositions = [
+        {
+          columns: [
+            {
+              text: '1',
+              width: mm2pt(20),
+            },
+            {
+              text: '1 x',
+              width: mm2pt(20),
+            },
+            {
+              text: `Startgeld ${team.tournament.name}\nTeam: ${team.name}\nKategorie: ${team.category?.name || 'N/A'}`,
+            },
+            {
+              text: `CHF ${entryFee.toFixed(2)}`,
+              width: mm2pt(30),
+              align: 'right' as const,
+            },
+          ],
+          padding: 5,
+        },
+      ];
+
+      const table = new Table({
+        rows: [
+          {
+            backgroundColor: '#4A4D51',
+            columns: [
+              {
+                text: 'Position',
+                width: mm2pt(20),
+              },
+              {
+                text: 'Anzahl',
+                width: mm2pt(20),
+              },
+              {
+                text: 'Bezeichnung',
+              },
+              {
+                text: 'Total',
+                width: mm2pt(30),
+                align: 'left' as const,
+              },
+            ],
+            fontName: 'Helvetica-Bold',
+            height: 20,
+            padding: 5,
+            textColor: '#fff',
+            verticalAlign: 'center',
+          },
+          ...invoicePositions,
+          {
+            columns: [
+              {
+                text: '',
+                width: mm2pt(20),
+              },
+              {
+                text: '',
+                width: mm2pt(20),
+              },
+              {
+                fontName: 'Helvetica-Bold',
+                text: 'Summe',
+              },
+              {
+                fontName: 'Helvetica-Bold',
+                text: `CHF ${entryFee.toFixed(2)}`,
+                width: mm2pt(30),
+                align: 'right' as const,
+              },
+            ],
+            height: 40,
+            padding: 5,
+          },
+          {
+            columns: [
+              {
+                text: '',
+                width: mm2pt(20),
+              },
+              {
+                text: '',
+                width: mm2pt(20),
+              },
+              {
+                fontName: 'Helvetica-Bold',
+                text: 'Rechnungstotal',
+              },
+              {
+                fontName: 'Helvetica-Bold',
+                text: `CHF ${entryFee.toFixed(2)}`,
+                width: mm2pt(30),
+                align: 'right' as const,
+              },
+            ],
+            height: 40,
+            padding: 5,
+          },
+        ],
+        width: mm2pt(170),
+      });
+
+      table.attachTo(pdf);
+
+      pdf.on('data', (chunk: Uint8Array) => chunks.push(chunk));
+      pdf.on('end', () => {
+        const result = new Uint8Array(chunks.reduce((acc, chunk) => acc + chunk.length, 0));
+        let offset = 0;
+        for (const chunk of chunks) {
+          result.set(chunk, offset);
+          offset += chunk.length;
+        }
+        resolve(result);
+      });
+      pdf.on('error', reject);
+
+      pdf.end();
     });
 
-    // Serialize PDF
-    const pdfBytes = await pdfDoc.save();
-    
-    console.log("QR invoice PDF generated successfully, size:", pdfBytes.length);
+    console.log("QR invoice PDF generated successfully, size:", pdfBuffer.length);
 
-    // Return PDF as base64
-    const base64Pdf = btoa(String.fromCharCode(...pdfBytes));
+    // Convert to base64
+    const base64Pdf = btoa(String.fromCharCode(...pdfBuffer));
 
     return new Response(
-      JSON.stringify({ 
+      JSON.stringify({
         pdf: base64Pdf,
         filename: `rechnung-${team.name.replace(/[^a-zA-Z0-9]/g, '-')}.pdf`
       }),
