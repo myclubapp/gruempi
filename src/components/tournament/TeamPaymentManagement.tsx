@@ -110,8 +110,11 @@ const TeamPaymentManagement = ({ tournamentId, teams, onUpdate }: TeamPaymentMan
 
       if (error) throw error;
 
+      // The function returns HTML directly as text
+      const htmlContent = typeof data === 'string' ? data : data?.html || String(data);
+      
       // Open the HTML in a new tab
-      const blob = new Blob([data.html], { type: "text/html" });
+      const blob = new Blob([htmlContent], { type: "text/html" });
       const url = URL.createObjectURL(blob);
       window.open(url, "_blank");
 
