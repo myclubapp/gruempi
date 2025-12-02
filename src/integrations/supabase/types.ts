@@ -218,6 +218,7 @@ export type Database = {
           name: string
           payment_method: string | null
           payment_status: string
+          registration_token: string
           rules_accepted: boolean
           status: string
           stripe_payment_intent_id: string | null
@@ -237,6 +238,7 @@ export type Database = {
           name: string
           payment_method?: string | null
           payment_status?: string
+          registration_token?: string
           rules_accepted?: boolean
           status?: string
           stripe_payment_intent_id?: string | null
@@ -256,6 +258,7 @@ export type Database = {
           name?: string
           payment_method?: string | null
           payment_status?: string
+          registration_token?: string
           rules_accepted?: boolean
           status?: string
           stripe_payment_intent_id?: string | null
