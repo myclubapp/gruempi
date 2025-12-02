@@ -385,17 +385,16 @@ const TournamentDetail = () => {
       </div>
 
         <Tabs defaultValue="overview" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-7">
+          <TabsList className="grid w-full grid-cols-6">
             <TabsTrigger value="overview">Übersicht</TabsTrigger>
             <TabsTrigger value="teams">Teams</TabsTrigger>
             <TabsTrigger value="groups">Gruppen</TabsTrigger>
             <TabsTrigger value="schedule">Spielplan</TabsTrigger>
             <TabsTrigger value="payment">Zahlungen</TabsTrigger>
             <TabsTrigger value="settings">Einstellungen</TabsTrigger>
-            <TabsTrigger value="domain">Domain</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="overview">
+          <TabsContent value="overview" className="space-y-6">
             {tournament.status === "draft" && (
               <Card>
                 <CardHeader>
@@ -431,13 +430,17 @@ const TournamentDetail = () => {
               </Card>
             )}
 
+            {/* Tournament Settings (moved from settings tab) */}
+            <TournamentSettings
+              tournament={tournament}
+              onUpdate={loadTournament}
+            />
+
             {/* Categories and Rules */}
-            <div className="mt-6">
-              <TournamentCategoriesRules
-                tournament={tournament}
-                onUpdate={loadTournament}
-              />
-            </div>
+            <TournamentCategoriesRules
+              tournament={tournament}
+              onUpdate={loadTournament}
+            />
           </TabsContent>
 
           <TabsContent value="teams">
@@ -598,13 +601,6 @@ const TournamentDetail = () => {
 
           <TabsContent value="settings" className="space-y-6">
             <ScheduleConfig tournamentId={id!} />
-            <TournamentSettings
-              tournament={tournament}
-              onUpdate={loadTournament}
-            />
-          </TabsContent>
-
-          <TabsContent value="domain">
             <DomainSettings
               tournament={tournament}
               onUpdate={loadTournament}
