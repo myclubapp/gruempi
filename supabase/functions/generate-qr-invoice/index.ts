@@ -1,8 +1,19 @@
+// deno-lint-ignore-file no-explicit-any
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 import { PDFDocument, rgb, StandardFonts } from "https://esm.sh/pdf-lib@1.17.1";
-import { SwissQRBill } from "https://esm.sh/swissqrbill@4.2.1/svg";
+import { parseHTML } from "https://esm.sh/linkedom@0.16.8";
 import { initialize, svg2png } from "https://esm.sh/svg2png-wasm@1.4.1";
+
+// Setup DOM globals for swissqrbill
+const dom = parseHTML('<!DOCTYPE html><html><body></body></html>');
+// @ts-ignore: Setting global for swissqrbill
+globalThis.document = dom.document;
+// @ts-ignore: Setting global for swissqrbill
+globalThis.SVGElement = dom.SVGElement;
+
+// Now import swissqrbill after DOM is set up
+const { SwissQRBill } = await import("https://esm.sh/swissqrbill@4.2.1/svg");
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
