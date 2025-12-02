@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Calendar, Play, AlertCircle } from "lucide-react";
@@ -41,6 +42,10 @@ interface GeneratedMatch {
   scheduled_time: Date;
   field_number: number;
   match_number: number;
+  homeTeamName?: string;
+  awayTeamName?: string;
+  groupName?: string;
+  categoryName?: string;
 }
 
 export default function MatchScheduleGenerator({ tournamentId }: MatchScheduleGeneratorProps) {
@@ -116,7 +121,12 @@ export default function MatchScheduleGenerator({ tournamentId }: MatchScheduleGe
       // Load groups and team assignments
       const { data: groups, error: groupsError } = await supabase
         .from("tournament_groups")
-        .select("id, name, category_id")
+        .select(`
+          id, 
+          name, 
+          category_id,
+          category:tournament_categories(id, name)
+        `)
         .eq("tournament_id", tournamentId);
 
       if (groupsError) throw groupsError;
@@ -133,6 +143,20 @@ export default function MatchScheduleGenerator({ tournamentId }: MatchScheduleGe
         .eq("tournament_id", tournamentId);
 
       if (teamsError) throw teamsError;
+
+      // Create maps for quick lookups
+      const teamsMap: Record<string, string> = {};
+      teams?.forEach((t) => {
+        teamsMap[t.id] = t.name;
+      });
+
+      const groupsMap: Record<string, { name: string; categoryName: string }> = {};
+      groups?.forEach((g) => {
+        groupsMap[g.id] = {
+          name: g.name,
+          categoryName: (g.category as any)?.name || ""
+        };
+      });
 
       // Group teams by group_id
       const teamsByGroup: Record<string, string[]> = {};
@@ -198,6 +222,8 @@ export default function MatchScheduleGenerator({ tournamentId }: MatchScheduleGe
 
         // Schedule all matches in this round
         for (const match of roundMatches) {
+          const groupInfo = groupsMap[match.groupId];
+          
           generatedMatches.push({
             home_team_id: match.homeId,
             away_team_id: match.awayId,
@@ -205,6 +231,10 @@ export default function MatchScheduleGenerator({ tournamentId }: MatchScheduleGe
             scheduled_time: new Date(currentTime),
             field_number: currentField,
             match_number: matchNumber++,
+            homeTeamName: teamsMap[match.homeId] || "Unbekannt",
+            awayTeamName: teamsMap[match.awayId] || "Unbekannt",
+            groupName: groupInfo?.name || "",
+            categoryName: groupInfo?.categoryName || ""
           });
 
           // Move to next field or next time slot
@@ -331,12 +361,23 @@ export default function MatchScheduleGenerator({ tournamentId }: MatchScheduleGe
 
               <div className="max-h-96 overflow-y-auto space-y-2">
                 {previewMatches.slice(0, 20).map((match, i) => (
-                  <div key={i} className="p-3 border rounded-lg text-sm">
-                    <div className="font-medium">
-                      Spiel #{match.match_number} - Feld {match.field_number}
+                  <div key={i} className="p-4 border rounded-lg">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="font-medium">
+                        Spiel #{match.match_number} - Feld {match.field_number}
+                      </div>
+                      <div className="text-sm text-muted-foreground">
+                        {format(match.scheduled_time, "HH:mm", { locale: de })}
+                      </div>
                     </div>
-                    <div className="text-muted-foreground">
-                      {format(match.scheduled_time, "HH:mm", { locale: de })}
+                    <div className="text-sm space-y-1">
+                      <div className="flex items-center gap-2">
+                        <Badge variant="outline">{match.categoryName}</Badge>
+                        <span className="text-muted-foreground">{match.groupName}</span>
+                      </div>
+                      <div className="font-semibold">
+                        {match.homeTeamName} vs {match.awayTeamName}
+                      </div>
                     </div>
                   </div>
                 ))}
