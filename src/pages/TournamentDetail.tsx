@@ -390,14 +390,14 @@ const TournamentDetail = () => {
         </div>
 
         <Tabs defaultValue="overview" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-8">
+          <TabsList className="grid w-full grid-cols-7">
             <TabsTrigger value="overview">Übersicht</TabsTrigger>
             <TabsTrigger value="teams">Teams</TabsTrigger>
             <TabsTrigger value="groups">Gruppen</TabsTrigger>
             <TabsTrigger value="schedule">Spielplan</TabsTrigger>
             <TabsTrigger value="payment">Zahlungen</TabsTrigger>
-            <TabsTrigger value="domain">Domain</TabsTrigger>
             <TabsTrigger value="settings">Einstellungen</TabsTrigger>
+            <TabsTrigger value="domain">Domain</TabsTrigger>
           </TabsList>
 
           <TabsContent value="overview">
@@ -601,17 +601,16 @@ const TournamentDetail = () => {
             />
           </TabsContent>
 
-          <TabsContent value="domain">
-            <DomainSettings
+          <TabsContent value="settings" className="space-y-6">
+            <ScheduleConfig tournamentId={id!} />
+            <TournamentSettings
               tournament={tournament}
               onUpdate={loadTournament}
             />
           </TabsContent>
 
-
-          <TabsContent value="settings" className="space-y-6">
-            <ScheduleConfig tournamentId={id!} />
-            <TournamentSettings
+          <TabsContent value="domain">
+            <DomainSettings
               tournament={tournament}
               onUpdate={loadTournament}
             />
