@@ -339,13 +339,16 @@ export default function PlayerRegistration() {
 
                 <div className="space-y-2">
                   <Label htmlFor="position">Position</Label>
-                  <Input
+                  <select
                     id="position"
                     value={formData.position}
                     onChange={(e) => setFormData({ ...formData, position: e.target.value })}
-                    maxLength={50}
-                    placeholder="z.B. Stürmer, Verteidiger"
-                  />
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  >
+                    <option value="">Bitte wählen...</option>
+                    <option value="goalie">Goalie</option>
+                    <option value="field">Feldspieler</option>
+                  </select>
                 </div>
               </div>
 
