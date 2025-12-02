@@ -288,7 +288,9 @@ export type Database = {
           id: string
           max_licensed_players: number
           max_players: number
+          max_teams: number | null
           min_players: number
+          min_teams: number | null
           name: string
           tournament_id: string
         }
@@ -298,7 +300,9 @@ export type Database = {
           id?: string
           max_licensed_players?: number
           max_players?: number
+          max_teams?: number | null
           min_players?: number
+          min_teams?: number | null
           name: string
           tournament_id: string
         }
@@ -308,7 +312,9 @@ export type Database = {
           id?: string
           max_licensed_players?: number
           max_players?: number
+          max_teams?: number | null
           min_players?: number
+          min_teams?: number | null
           name?: string
           tournament_id?: string
         }
@@ -369,6 +375,7 @@ export type Database = {
           description: string | null
           domain_status: string | null
           domain_verification_token: string | null
+          end_time: string | null
           entry_fee: number
           id: string
           location: string
@@ -376,6 +383,7 @@ export type Database = {
           organizer_id: string
           rules: string | null
           rules_pdf_url: string | null
+          start_time: string | null
           status: string
           terms_and_conditions: string | null
           terms_pdf_url: string | null
@@ -388,6 +396,7 @@ export type Database = {
           description?: string | null
           domain_status?: string | null
           domain_verification_token?: string | null
+          end_time?: string | null
           entry_fee?: number
           id?: string
           location: string
@@ -395,6 +404,7 @@ export type Database = {
           organizer_id: string
           rules?: string | null
           rules_pdf_url?: string | null
+          start_time?: string | null
           status?: string
           terms_and_conditions?: string | null
           terms_pdf_url?: string | null
@@ -407,6 +417,7 @@ export type Database = {
           description?: string | null
           domain_status?: string | null
           domain_verification_token?: string | null
+          end_time?: string | null
           entry_fee?: number
           id?: string
           location?: string
@@ -414,6 +425,7 @@ export type Database = {
           organizer_id?: string
           rules?: string | null
           rules_pdf_url?: string | null
+          start_time?: string | null
           status?: string
           terms_and_conditions?: string | null
           terms_pdf_url?: string | null
