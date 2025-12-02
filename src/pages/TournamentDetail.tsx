@@ -20,6 +20,7 @@ import GroupManagement from "@/components/tournament/GroupManagement";
 import MatchScheduleGenerator from "@/components/tournament/MatchScheduleGenerator";
 import MatchList from "@/components/tournament/MatchList";
 import StandingsTable from "@/components/tournament/StandingsTable";
+import TeamPaymentManagement from "@/components/tournament/TeamPaymentManagement";
 
 interface Tournament {
   id: string;
@@ -618,7 +619,12 @@ const TournamentDetail = () => {
             )}
           </TabsContent>
 
-          <TabsContent value="payment">
+          <TabsContent value="payment" className="space-y-6">
+            <TeamPaymentManagement
+              tournamentId={tournament.id}
+              teams={teams}
+              onUpdate={loadTournament}
+            />
             <PaymentSettings
               tournament={tournament}
               organizerProfile={organizerProfile}
