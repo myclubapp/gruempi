@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 import PDFDocument from "https://esm.sh/pdfkit@0.15.0?target=deno";
 import { SwissQRBill } from "https://esm.sh/swissqrbill@4.2.1/pdf?target=deno&deps=pdfkit@0.15.0";
+import { mm2pt } from "https://esm.sh/swissqrbill@4.2.1/utils?target=deno";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -49,6 +50,16 @@ function generateQRReference(tournamentId: string, teamId: string): string {
 // Format reference for display (groups of 5)
 function formatReference(ref: string): string {
   return ref.replace(/(.{5})/g, '$1 ').trim();
+}
+
+// Format date in German Swiss format
+function formatDate(dateStr: string): string {
+  const date = new Date(dateStr);
+  return date.toLocaleDateString("de-CH", { 
+    day: 'numeric',
+    month: 'long', 
+    year: 'numeric' 
+  });
 }
 
 serve(async (req) => {
@@ -111,20 +122,19 @@ serve(async (req) => {
 
     // Generate valid 27-digit QR reference
     const referenceNumber = generateQRReference(team.tournament.id, team_id);
-    
     console.log("Generated QR reference:", referenceNumber);
 
     // Get entry fee from category or tournament
     const entryFee = team.category?.entry_fee || team.tournament.entry_fee || 0;
 
-    // Prepare data for SwissQRBill
+    // Prepare data for SwissQRBill (following the library's expected format)
     const qrBillData = {
       amount: entryFee,
       creditor: {
         account: creditorAccount.replace(/\s/g, ''),
         name: creditorName,
         address: creditorAddress,
-        buildingNumber: creditorBuildingNumber,
+        buildingNumber: creditorBuildingNumber ? String(creditorBuildingNumber) : undefined,
         zip: parseInt(creditorZip) || 0,
         city: creditorCity,
         country: creditorCountry
@@ -133,7 +143,7 @@ serve(async (req) => {
       debtor: {
         name: team.contact_name,
         address: "",
-        buildingNumber: "",
+        buildingNumber: undefined,
         zip: 0,
         city: "",
         country: "CH"
@@ -144,11 +154,8 @@ serve(async (req) => {
 
     console.log("Creating PDF with SwissQRBill...");
 
-    // Create PDF document
-    const pdf = new PDFDocument({ 
-      size: "A4",
-      margins: { top: 50, bottom: 50, left: 50, right: 50 }
-    });
+    // Create PDF document following the guide
+    const pdf = new PDFDocument({ size: "A4" });
 
     // Collect PDF chunks
     const chunks: Uint8Array[] = [];
@@ -157,53 +164,100 @@ serve(async (req) => {
       chunks.push(chunk);
     });
 
-    // Add invoice header
-    pdf.fontSize(24).font('Helvetica-Bold').text('Rechnung', { align: 'center' });
-    pdf.moveDown(0.5);
-    pdf.fontSize(12).font('Helvetica').text('Turnier-Anmeldung', { align: 'center' });
-    pdf.moveDown(2);
+    // === Add content to PDF following the guide ===
 
-    // Tournament details
-    pdf.fontSize(14).font('Helvetica-Bold').text('Turnier Details');
-    pdf.moveDown(0.5);
-    pdf.fontSize(11).font('Helvetica');
-    pdf.text(`Turnier: ${team.tournament.name}`);
-    pdf.text(`Datum: ${new Date(team.tournament.date).toLocaleDateString("de-CH", { 
-      year: 'numeric', 
-      month: 'long', 
-      day: 'numeric' 
-    })}`);
-    pdf.text(`Ort: ${team.tournament.location}`);
-    pdf.moveDown(1.5);
-
-    // Team details
-    pdf.fontSize(14).font('Helvetica-Bold').text('Team Details');
-    pdf.moveDown(0.5);
-    pdf.fontSize(11).font('Helvetica');
-    pdf.text(`Team Name: ${team.name}`);
-    pdf.text(`Kategorie: ${team.category?.name || 'N/A'}`);
-    pdf.text(`Kontakt: ${team.contact_name}`);
-    pdf.text(`Email: ${team.contact_email}`);
-    if (team.contact_phone) {
-      pdf.text(`Telefon: ${team.contact_phone}`);
-    }
-    pdf.moveDown(1.5);
-
-    // Payment details box
-    pdf.rect(50, pdf.y, 495, 80).fillAndStroke('#f5f5f5', '#cccccc');
-    const boxY = pdf.y + 15;
-    pdf.fill('#000000');
-    pdf.fontSize(14).font('Helvetica-Bold').text('Zahlungsdetails', 65, boxY);
-    pdf.fontSize(16).font('Helvetica-Bold').fillColor('#dc2626').text(`Startgeld: CHF ${entryFee.toFixed(2)}`, 65, boxY + 25);
-    pdf.fillColor('#000000').fontSize(10).font('Helvetica').text(`Referenznummer: ${formatReference(referenceNumber)}`, 65, boxY + 50);
-    
-    pdf.moveDown(6);
-    pdf.fontSize(9).fillColor('#666666').text(
-      'Bitte verwenden Sie den unten stehenden Einzahlungsschein für die Zahlung.',
-      { align: 'center' }
+    // Creditor address (top left)
+    pdf.fontSize(12);
+    pdf.fillColor("black");
+    pdf.font("Helvetica");
+    pdf.text(
+      `${creditorName}\n${creditorAddress}${creditorBuildingNumber ? ' ' + creditorBuildingNumber : ''}\n${creditorZip} ${creditorCity}`,
+      mm2pt(20),
+      mm2pt(35),
+      {
+        align: "left",
+        height: mm2pt(50),
+        width: mm2pt(100)
+      }
     );
 
-    // Attach Swiss QR Bill at the bottom
+    // Debtor address (top right)
+    pdf.fontSize(12);
+    pdf.font("Helvetica");
+    pdf.text(
+      `${team.contact_name}\n${team.contact_email}`,
+      mm2pt(130),
+      mm2pt(60),
+      {
+        align: "left",
+        height: mm2pt(50),
+        width: mm2pt(70)
+      }
+    );
+
+    // Title and date
+    pdf.fontSize(14);
+    pdf.font("Helvetica-Bold");
+    pdf.text(
+      `Rechnung - Turnieranmeldung`,
+      mm2pt(20),
+      mm2pt(100),
+      {
+        align: "left",
+        width: mm2pt(170)
+      }
+    );
+
+    const today = new Date();
+    pdf.fontSize(11);
+    pdf.font("Helvetica");
+    pdf.text(
+      `${creditorCity}, ${today.getDate()}.${today.getMonth() + 1}.${today.getFullYear()}`,
+      {
+        align: "right",
+        width: mm2pt(170)
+      }
+    );
+
+    // Tournament info section
+    pdf.moveDown(2);
+    pdf.fontSize(12);
+    pdf.font("Helvetica-Bold");
+    pdf.text("Turnier", mm2pt(20), mm2pt(120));
+    
+    pdf.font("Helvetica");
+    pdf.fontSize(11);
+    pdf.text(`${team.tournament.name}`, mm2pt(20), mm2pt(128));
+    pdf.text(`Datum: ${formatDate(team.tournament.date)}`, mm2pt(20), mm2pt(135));
+    pdf.text(`Ort: ${team.tournament.location}`, mm2pt(20), mm2pt(142));
+
+    // Team info section
+    pdf.font("Helvetica-Bold");
+    pdf.fontSize(12);
+    pdf.text("Team", mm2pt(20), mm2pt(155));
+    
+    pdf.font("Helvetica");
+    pdf.fontSize(11);
+    pdf.text(`Teamname: ${team.name}`, mm2pt(20), mm2pt(163));
+    pdf.text(`Kategorie: ${team.category?.name || 'N/A'}`, mm2pt(20), mm2pt(170));
+    pdf.text(`Kontaktperson: ${team.contact_name}`, mm2pt(20), mm2pt(177));
+
+    // Payment summary
+    pdf.font("Helvetica-Bold");
+    pdf.fontSize(12);
+    pdf.text("Rechnungsbetrag", mm2pt(20), mm2pt(195));
+    
+    pdf.fontSize(14);
+    pdf.text(`CHF ${entryFee.toFixed(2)}`, mm2pt(140), mm2pt(195));
+
+    pdf.font("Helvetica");
+    pdf.fontSize(9);
+    pdf.fillColor("#666666");
+    pdf.text(`Referenznummer: ${formatReference(referenceNumber)}`, mm2pt(20), mm2pt(205));
+    
+    pdf.fillColor("black");
+
+    // Create and attach the Swiss QR Bill
     const qrBill = new SwissQRBill(qrBillData);
     qrBill.attachTo(pdf);
 
