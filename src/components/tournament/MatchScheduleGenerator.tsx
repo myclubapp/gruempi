@@ -141,14 +141,12 @@ export default function MatchScheduleGenerator({ tournamentId }: MatchScheduleGe
         teamsByGroup[a.group_id].push(a.team_id);
       });
 
-      // Generate matches for each group
-      const generatedMatches: GeneratedMatch[] = [];
-      let matchNumber = 1;
-      let currentTime = parse(tournament.start_time, "HH:mm:ss", new Date(tournament.date));
-      let currentField = 1;
-
+      // Generate matches for each group (organized by round)
       const errors: string[] = [];
+      const matchesByGroupAndRound: Record<string, Array<[string, string]>> = {};
+      let maxRounds = 0;
 
+      // First, generate all round-robin matches for each group
       for (const group of groups || []) {
         const groupTeams = teamsByGroup[group.id] || [];
 
@@ -158,12 +156,50 @@ export default function MatchScheduleGenerator({ tournamentId }: MatchScheduleGe
         }
 
         const roundRobinMatches = generateRoundRobin(groupTeams);
+        const teamsCount = groupTeams.length;
+        const roundsCount = teamsCount % 2 === 0 ? teamsCount - 1 : teamsCount;
+        const matchesPerRound = Math.floor(teamsCount / 2);
+        
+        maxRounds = Math.max(maxRounds, roundsCount);
 
-        for (const [homeId, awayId] of roundRobinMatches) {
+        // Organize matches by round for this group
+        for (let round = 0; round < roundsCount; round++) {
+          const key = `${group.id}_${round}`;
+          matchesByGroupAndRound[key] = roundRobinMatches.slice(
+            round * matchesPerRound,
+            (round + 1) * matchesPerRound
+          );
+        }
+      }
+
+      // Now interleave matches from different categories/groups across time slots
+      const generatedMatches: GeneratedMatch[] = [];
+      let matchNumber = 1;
+      let currentTime = parse(tournament.start_time, "HH:mm:ss", new Date(tournament.date));
+      let currentField = 1;
+
+      // Process round by round, mixing categories
+      for (let round = 0; round < maxRounds; round++) {
+        // Collect all matches from all groups for this round
+        const roundMatches: Array<{ groupId: string; homeId: string; awayId: string }> = [];
+        
+        for (const group of groups || []) {
+          const key = `${group.id}_${round}`;
+          const matches = matchesByGroupAndRound[key];
+          
+          if (matches) {
+            for (const [homeId, awayId] of matches) {
+              roundMatches.push({ groupId: group.id, homeId, awayId });
+            }
+          }
+        }
+
+        // Schedule all matches in this round
+        for (const match of roundMatches) {
           generatedMatches.push({
-            home_team_id: homeId,
-            away_team_id: awayId,
-            group_id: group.id,
+            home_team_id: match.homeId,
+            away_team_id: match.awayId,
+            group_id: match.groupId,
             scheduled_time: new Date(currentTime),
             field_number: currentField,
             match_number: matchNumber++,
