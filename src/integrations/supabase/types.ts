@@ -111,6 +111,7 @@ export type Database = {
           creditor_building_number: string | null
           creditor_city: string | null
           creditor_country: string | null
+          creditor_name: string | null
           creditor_zip: string | null
           full_name: string
           id: string
@@ -125,6 +126,7 @@ export type Database = {
           creditor_building_number?: string | null
           creditor_city?: string | null
           creditor_country?: string | null
+          creditor_name?: string | null
           creditor_zip?: string | null
           full_name: string
           id: string
@@ -139,6 +141,7 @@ export type Database = {
           creditor_building_number?: string | null
           creditor_city?: string | null
           creditor_country?: string | null
+          creditor_name?: string | null
           creditor_zip?: string | null
           full_name?: string
           id?: string
