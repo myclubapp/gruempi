@@ -13,6 +13,7 @@ import { ArrowLeft, Globe, Users, Settings as SettingsIcon, Award, CreditCard, E
 import { toast } from "sonner";
 import DomainSettings from "@/components/tournament/DomainSettings";
 import PaymentSettings from "@/components/tournament/PaymentSettings";
+import DashboardLayout from "@/components/DashboardLayout";
 
 import TournamentSettings from "@/components/tournament/TournamentSettings";
 import TournamentCategoriesRules from "@/components/tournament/TournamentCategoriesRules";
@@ -298,96 +299,90 @@ const TournamentDetail = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="border-b border-border bg-card">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
+    <DashboardLayout profileName={organizerProfile?.full_name}>
+      {/* Tournament Sub-Header */}
+      <div className="flex items-center justify-between mb-6">
+        <Button
+          variant="ghost"
+          onClick={() => navigate("/dashboard")}
+          className="gap-2"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          Zurück zum Dashboard
+        </Button>
+        <div className="flex items-center gap-2">
+          {tournament.status !== "draft" && (
             <Button
-              variant="ghost"
-              onClick={() => navigate("/dashboard")}
+              variant="outline"
+              onClick={handleShareMicrosite}
               className="gap-2"
             >
-              <ArrowLeft className="w-4 h-4" />
-              Zurück zum Dashboard
+              <Share2 className="w-4 h-4" />
+              Microsite teilen
             </Button>
-            <div className="flex items-center gap-2">
-              {tournament.status !== "draft" && (
-                <Button
-                  variant="outline"
-                  onClick={handleShareMicrosite}
-                  className="gap-2"
-                >
-                  <Share2 className="w-4 h-4" />
-                  Microsite teilen
-                </Button>
-              )}
-              {tournament.status !== "draft" && (
-                <Button
-                  variant="outline"
-                  onClick={() => navigate(`/dashboard/tournament/${id}/cockpit`)}
-                  className="gap-2"
-                >
-                  🎮 Cockpit öffnen
-                </Button>
-              )}
-              {tournament.status !== "draft" && (
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => window.open(getMicrositeUrl(), "_blank")}
-                  title="Microsite öffnen"
-                >
-                  <ExternalLink className="w-4 h-4" />
-                </Button>
-              )}
-              {getStatusBadge(tournament.status)}
-              {tournament.status === "draft" && (
-                <Button
-                  variant="hero"
-                  onClick={() => updateStatus("published")}
-                >
-                  Veröffentlichen
-                </Button>
-              )}
-            </div>
-          </div>
+          )}
+          {tournament.status !== "draft" && (
+            <Button
+              variant="outline"
+              onClick={() => navigate(`/dashboard/tournament/${id}/cockpit`)}
+              className="gap-2"
+            >
+              🎮 Cockpit öffnen
+            </Button>
+          )}
+          {tournament.status !== "draft" && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => window.open(getMicrositeUrl(), "_blank")}
+              title="Microsite öffnen"
+            >
+              <ExternalLink className="w-4 h-4" />
+            </Button>
+          )}
+          {getStatusBadge(tournament.status)}
+          {tournament.status === "draft" && (
+            <Button
+              variant="hero"
+              onClick={() => updateStatus("published")}
+            >
+              Veröffentlichen
+            </Button>
+          )}
         </div>
-      </header>
+      </div>
 
-      {/* Main Content */}
-      <main className="container mx-auto px-4 py-8">
-        <div className="mb-6">
-          <h1 className="text-4xl font-bold text-foreground mb-2">
-            {tournament.name}
-          </h1>
-          <div className="flex flex-wrap gap-4 text-muted-foreground">
+      <div className="mb-6">
+        <h1 className="text-4xl font-bold text-foreground mb-2">
+          {tournament.name}
+        </h1>
+        <div className="flex flex-wrap gap-4 text-muted-foreground">
+          <span>
+            📅 {new Date(tournament.date).toLocaleDateString("de-CH")}
+            {tournament.start_time && tournament.end_time && 
+              ` • ${tournament.start_time.slice(0, 5)} - ${tournament.end_time.slice(0, 5)} Uhr`
+            }
+          </span>
+          <span>📍 {tournament.location}</span>
+          <span>💰 CHF {tournament.entry_fee.toFixed(2)}</span>
+          {tournament.sport_type && (
             <span>
-              📅 {new Date(tournament.date).toLocaleDateString("de-CH")}
-              {tournament.start_time && tournament.end_time && 
-                ` • ${tournament.start_time.slice(0, 5)} - ${tournament.end_time.slice(0, 5)} Uhr`
-              }
+              🏐 {tournament.sport_type.charAt(0).toUpperCase() + tournament.sport_type.slice(1)}
             </span>
-            <span>📍 {tournament.location}</span>
-            <span>💰 CHF {tournament.entry_fee.toFixed(2)}</span>
-            {tournament.sport_type && (
-              <span>
-                🏐 {tournament.sport_type.charAt(0).toUpperCase() + tournament.sport_type.slice(1)}
-              </span>
-            )}
-            {tournament.registration_deadline && (
-              <span>
-                ⏰ Anmeldeschluss: {new Date(tournament.registration_deadline).toLocaleString("de-CH")}
-              </span>
-            )}
-            {tournament.custom_domain && (
-              <span className="flex items-center gap-1">
-                <Globe className="w-4 h-4" />
-                {tournament.custom_domain}
-              </span>
-            )}
-          </div>
+          )}
+          {tournament.registration_deadline && (
+            <span>
+              ⏰ Anmeldeschluss: {new Date(tournament.registration_deadline).toLocaleString("de-CH")}
+            </span>
+          )}
+          {tournament.custom_domain && (
+            <span className="flex items-center gap-1">
+              <Globe className="w-4 h-4" />
+              {tournament.custom_domain}
+            </span>
+          )}
         </div>
+      </div>
 
         <Tabs defaultValue="overview" className="space-y-6">
           <TabsList className="grid w-full grid-cols-7">
@@ -710,8 +705,7 @@ const TournamentDetail = () => {
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
-      </main>
-    </div>
+    </DashboardLayout>
   );
 };
 
