@@ -1,12 +1,23 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 import { PDFDocument, rgb, StandardFonts } from "https://esm.sh/pdf-lib@1.17.1";
-import { encode } from "https://esm.sh/uqr@0.1.2";
+import { SwissQRBill } from "https://esm.sh/swissqrbill@4.2.1/svg";
+import { initialize, svg2png } from "https://esm.sh/svg2png-wasm@1.4.1";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
+
+// Initialize svg2png-wasm
+let wasmInitialized = false;
+
+async function initWasm() {
+  if (!wasmInitialized) {
+    await initialize(fetch("https://unpkg.com/svg2png-wasm@1.4.1/svg2png_wasm_bg.wasm"));
+    wasmInitialized = true;
+  }
+}
 
 // Calculate modulo 10 recursive checksum for QR reference
 function calculateMod10Recursive(ref: string): number {
@@ -61,87 +72,9 @@ function formatDate(dateStr: string): string {
   });
 }
 
-// Generate Swiss QR Code payload
-function generateSwissQRPayload(data: {
-  account: string;
-  creditorName: string;
-  creditorAddress: string;
-  creditorZip: string;
-  creditorCity: string;
-  creditorCountry: string;
-  amount: number;
-  currency: string;
-  debtorName: string;
-  reference: string;
-  message: string;
-}): string {
-  const lines = [
-    "SPC",                          // QRType
-    "0200",                         // Version
-    "1",                            // Coding Type (UTF-8)
-    data.account.replace(/\s/g, ''), // IBAN
-    "S",                            // Address Type (S = structured)
-    data.creditorName,              // Creditor Name
-    data.creditorAddress,           // Street
-    "",                             // Building Number (optional)
-    data.creditorZip,               // Postal Code
-    data.creditorCity,              // City
-    data.creditorCountry,           // Country
-    "",                             // Ultimate Creditor (empty)
-    "",                             // UC Address Type
-    "",                             // UC Name
-    "",                             // UC Street
-    "",                             // UC Building
-    "",                             // UC Postal
-    "",                             // UC City
-    "",                             // UC Country
-    data.amount.toFixed(2),         // Amount
-    data.currency,                  // Currency
-    "S",                            // Debtor Address Type
-    data.debtorName,                // Debtor Name
-    "",                             // Debtor Street
-    "",                             // Debtor Building
-    "",                             // Debtor Postal
-    "",                             // Debtor City
-    "CH",                           // Debtor Country
-    "QRR",                          // Reference Type (QR Reference)
-    data.reference,                 // Reference
-    data.message,                   // Additional Information
-    "EPD",                          // Trailer
-    ""                              // Billing Information
-  ];
-  return lines.join("\n");
-}
-
 // Convert mm to PDF points (1mm = 2.835 points)
 function mm2pt(mm: number): number {
   return mm * 2.835;
-}
-
-// Draw QR code on PDF page using rectangles
-function drawQRCode(
-  page: ReturnType<typeof PDFDocument.prototype.addPage>,
-  qrData: boolean[][],
-  x: number,
-  y: number,
-  size: number
-) {
-  const moduleCount = qrData.length;
-  const moduleSize = size / moduleCount;
-  
-  for (let row = 0; row < moduleCount; row++) {
-    for (let col = 0; col < moduleCount; col++) {
-      if (qrData[row][col]) {
-        page.drawRectangle({
-          x: x + col * moduleSize,
-          y: y + (moduleCount - row - 1) * moduleSize,
-          width: moduleSize,
-          height: moduleSize,
-          color: rgb(0, 0, 0),
-        });
-      }
-    }
-  }
 }
 
 serve(async (req) => {
@@ -162,6 +95,9 @@ serve(async (req) => {
     }
 
     console.log("Generating QR invoice PDF for team:", team_id);
+
+    // Initialize WASM for SVG to PNG conversion
+    await initWasm();
 
     // Fetch team with tournament and category details
     const { data: team, error: teamError } = await supabaseClient
@@ -208,6 +144,46 @@ serve(async (req) => {
 
     // Get entry fee from category or tournament
     const entryFee = team.category?.entry_fee || team.tournament.entry_fee || 0;
+
+    // Prepare QR Bill data for swissqrbill
+    const qrBillData = {
+      amount: entryFee,
+      creditor: {
+        account: creditorAccount.replace(/\s/g, ''),
+        name: creditorName,
+        address: creditorAddress,
+        buildingNumber: creditorBuildingNumber ? String(creditorBuildingNumber) : undefined,
+        zip: parseInt(creditorZip) || 0,
+        city: creditorCity,
+        country: creditorCountry
+      },
+      currency: "CHF" as const,
+      debtor: {
+        name: team.contact_name,
+        address: "",
+        zip: 0,
+        city: "",
+        country: "CH"
+      },
+      reference: referenceNumber,
+      message: `Startgeld ${team.tournament.name} - Team ${team.name}`
+    };
+
+    console.log("Creating Swiss QR Bill SVG...");
+
+    // Generate Swiss QR Bill as SVG using swissqrbill library
+    const qrBillSvg = new SwissQRBill(qrBillData);
+    const svgString = qrBillSvg.toString();
+    
+    console.log("SVG generated, length:", svgString.length);
+
+    // Convert SVG to PNG
+    const pngData = await svg2png(svgString, {
+      scale: 2, // Higher quality
+      width: 595, // A4 width in pixels at 72 DPI
+    });
+
+    console.log("PNG generated, size:", pngData.length);
 
     // Create PDF document
     const pdfDoc = await PDFDocument.create();
@@ -270,284 +246,18 @@ serve(async (req) => {
     drawText(`Referenznummer: ${formatReference(referenceNumber)}`, 20, 205, { size: 9, color: rgb(0.4, 0.4, 0.4) });
 
     // === Swiss QR Bill Section (bottom of page) ===
-    const qrBillTop = height - mm2pt(192);
+    // Embed the QR Bill PNG at the bottom of the page
+    // The QR bill is 210mm wide x 105mm tall (A4 width x payment slip height)
     
-    // Draw separator line
-    page.drawLine({
-      start: { x: 0, y: qrBillTop },
-      end: { x: 595.28, y: qrBillTop },
-      thickness: 0.5,
-      color: rgb(0, 0, 0),
-      dashArray: [5, 5],
-    });
-
-    // Receipt section (left side, 62mm wide)
-    const receiptX = 5;
-    const receiptTextY = qrBillTop - mm2pt(10);
-
-    page.drawText("Empfangsschein", {
-      x: mm2pt(receiptX),
-      y: receiptTextY,
-      size: 11,
-      font: helveticaBold,
-    });
-
-    page.drawText("Konto / Zahlbar an", {
-      x: mm2pt(receiptX),
-      y: receiptTextY - mm2pt(8),
-      size: 6,
-      font: helveticaBold,
-    });
-
-    // Creditor info in receipt
-    let receiptY = receiptTextY - mm2pt(12);
-    page.drawText(creditorAccount.replace(/\s/g, '').replace(/(.{4})/g, '$1 ').trim(), {
-      x: mm2pt(receiptX),
-      y: receiptY,
-      size: 8,
-      font: helvetica,
-    });
-    receiptY -= mm2pt(4);
-    page.drawText(creditorName, {
-      x: mm2pt(receiptX),
-      y: receiptY,
-      size: 8,
-      font: helvetica,
-    });
-    receiptY -= mm2pt(4);
-    page.drawText(`${creditorZip} ${creditorCity}`, {
-      x: mm2pt(receiptX),
-      y: receiptY,
-      size: 8,
-      font: helvetica,
-    });
-
-    // Reference
-    receiptY -= mm2pt(8);
-    page.drawText("Referenz", {
-      x: mm2pt(receiptX),
-      y: receiptY,
-      size: 6,
-      font: helveticaBold,
-    });
-    receiptY -= mm2pt(4);
-    page.drawText(formatReference(referenceNumber), {
-      x: mm2pt(receiptX),
-      y: receiptY,
-      size: 8,
-      font: helvetica,
-    });
-
-    // Amount in receipt
-    receiptY -= mm2pt(10);
-    page.drawText("Währung", {
-      x: mm2pt(receiptX),
-      y: receiptY,
-      size: 6,
-      font: helveticaBold,
-    });
-    page.drawText("Betrag", {
-      x: mm2pt(receiptX + 15),
-      y: receiptY,
-      size: 6,
-      font: helveticaBold,
-    });
-    receiptY -= mm2pt(4);
-    page.drawText("CHF", {
-      x: mm2pt(receiptX),
-      y: receiptY,
-      size: 8,
-      font: helvetica,
-    });
-    page.drawText(entryFee.toFixed(2), {
-      x: mm2pt(receiptX + 15),
-      y: receiptY,
-      size: 8,
-      font: helvetica,
-    });
-
-    // Acceptance point
-    receiptY -= mm2pt(12);
-    page.drawText("Annahmestelle", {
-      x: mm2pt(receiptX),
-      y: receiptY,
-      size: 6,
-      font: helveticaBold,
-    });
-
-    // Vertical separator between receipt and payment part
-    page.drawLine({
-      start: { x: mm2pt(62), y: qrBillTop },
-      end: { x: mm2pt(62), y: qrBillTop - mm2pt(105) },
-      thickness: 0.5,
-      color: rgb(0, 0, 0),
-      dashArray: [5, 5],
-    });
-
-    // Payment part (right side)
-    const paymentX = 67;
-    const paymentTextY = qrBillTop - mm2pt(10);
-
-    page.drawText("Zahlteil", {
-      x: mm2pt(paymentX),
-      y: paymentTextY,
-      size: 11,
-      font: helveticaBold,
-    });
-
-    // Generate QR Code payload
-    const qrPayload = generateSwissQRPayload({
-      account: creditorAccount,
-      creditorName,
-      creditorAddress: `${creditorAddress}${creditorBuildingNumber ? ' ' + creditorBuildingNumber : ''}`,
-      creditorZip,
-      creditorCity,
-      creditorCountry,
-      amount: entryFee,
-      currency: "CHF",
-      debtorName: team.contact_name,
-      reference: referenceNumber,
-      message: `Startgeld ${team.tournament.name} - Team ${team.name}`,
-    });
-
-    console.log("QR Payload:", qrPayload);
-
-    // Generate QR code data matrix using uqr
-    const qrResult = encode(qrPayload, { ecc: 'M' });
-    const qrData = qrResult.data;
+    const qrBillImage = await pdfDoc.embedPng(pngData);
+    const qrBillHeight = mm2pt(105); // Standard QR bill height
+    const qrBillWidth = 595.28; // Full page width
     
-    console.log("QR code generated, size:", qrData.length);
-
-    // Draw QR code
-    const qrSize = mm2pt(46);
-    const qrX = mm2pt(paymentX);
-    const qrY = qrBillTop - mm2pt(56);
-    
-    drawQRCode(page, qrData, qrX, qrY, qrSize);
-
-    // Swiss cross in center of QR code
-    const crossSize = mm2pt(7);
-    const crossX = qrX + qrSize/2 - crossSize/2;
-    const crossY = qrY + qrSize/2 - crossSize/2;
-    
-    // White background for cross
-    page.drawRectangle({
-      x: crossX - mm2pt(1),
-      y: crossY - mm2pt(1),
-      width: crossSize + mm2pt(2),
-      height: crossSize + mm2pt(2),
-      color: rgb(1, 1, 1),
-    });
-    
-    // Black border for Swiss cross
-    page.drawRectangle({
-      x: crossX,
-      y: crossY,
-      width: crossSize,
-      height: crossSize,
-      borderColor: rgb(0, 0, 0),
-      borderWidth: 1,
-    });
-    
-    // Draw Swiss cross (white cross on black background would be inside the border)
-    // For simplicity, just draw a black square border - the actual Swiss cross would be more complex
-
-    // Payment part creditor info
-    const infoX = mm2pt(118);
-    let infoY = paymentTextY - mm2pt(8);
-
-    page.drawText("Konto / Zahlbar an", {
-      x: infoX,
-      y: infoY,
-      size: 8,
-      font: helveticaBold,
-    });
-    infoY -= mm2pt(5);
-    page.drawText(creditorAccount.replace(/\s/g, '').replace(/(.{4})/g, '$1 ').trim(), {
-      x: infoX,
-      y: infoY,
-      size: 10,
-      font: helvetica,
-    });
-    infoY -= mm2pt(5);
-    page.drawText(creditorName, {
-      x: infoX,
-      y: infoY,
-      size: 10,
-      font: helvetica,
-    });
-    infoY -= mm2pt(5);
-    page.drawText(`${creditorZip} ${creditorCity}`, {
-      x: infoX,
-      y: infoY,
-      size: 10,
-      font: helvetica,
-    });
-
-    // Reference
-    infoY -= mm2pt(10);
-    page.drawText("Referenz", {
-      x: infoX,
-      y: infoY,
-      size: 8,
-      font: helveticaBold,
-    });
-    infoY -= mm2pt(5);
-    page.drawText(formatReference(referenceNumber), {
-      x: infoX,
-      y: infoY,
-      size: 10,
-      font: helvetica,
-    });
-
-    // Additional info
-    infoY -= mm2pt(10);
-    page.drawText("Zusätzliche Informationen", {
-      x: infoX,
-      y: infoY,
-      size: 8,
-      font: helveticaBold,
-    });
-    infoY -= mm2pt(5);
-    page.drawText(`Startgeld ${team.tournament.name}`, {
-      x: infoX,
-      y: infoY,
-      size: 10,
-      font: helvetica,
-    });
-    infoY -= mm2pt(5);
-    page.drawText(`Team ${team.name}`, {
-      x: infoX,
-      y: infoY,
-      size: 10,
-      font: helvetica,
-    });
-
-    // Amount section at bottom
-    const amountY = qrBillTop - mm2pt(85);
-    page.drawText("Währung", {
-      x: mm2pt(paymentX),
-      y: amountY,
-      size: 8,
-      font: helveticaBold,
-    });
-    page.drawText("Betrag", {
-      x: mm2pt(paymentX + 20),
-      y: amountY,
-      size: 8,
-      font: helveticaBold,
-    });
-    page.drawText("CHF", {
-      x: mm2pt(paymentX),
-      y: amountY - mm2pt(5),
-      size: 10,
-      font: helvetica,
-    });
-    page.drawText(entryFee.toFixed(2), {
-      x: mm2pt(paymentX + 20),
-      y: amountY - mm2pt(5),
-      size: 10,
-      font: helvetica,
+    page.drawImage(qrBillImage, {
+      x: 0,
+      y: 0, // Bottom of page
+      width: qrBillWidth,
+      height: qrBillHeight,
     });
 
     // Serialize PDF
