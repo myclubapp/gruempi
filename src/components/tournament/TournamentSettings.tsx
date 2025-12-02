@@ -25,6 +25,22 @@ interface TournamentSettingsProps {
   onUpdate: () => void;
 }
 
+const formatDateTimeLocalValue = (isoString: string | null): string => {
+  if (!isoString) return "";
+  try {
+    const date = new Date(isoString);
+    // Format as YYYY-MM-DDTHH:mm for datetime-local input
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const hours = String(date.getHours()).padStart(2, '0');
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    return `${year}-${month}-${day}T${hours}:${minutes}`;
+  } catch {
+    return "";
+  }
+};
+
 const TournamentSettings = ({ tournament, onUpdate }: TournamentSettingsProps) => {
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
@@ -38,7 +54,7 @@ const TournamentSettings = ({ tournament, onUpdate }: TournamentSettingsProps) =
     rules: tournament.rules || "",
     terms_and_conditions: tournament.terms_and_conditions || "",
     sport_type: tournament.sport_type || "",
-    registration_deadline: tournament.registration_deadline || "",
+    registration_deadline: formatDateTimeLocalValue(tournament.registration_deadline),
   });
 
   const [categories, setCategories] = useState<Category[]>([]);
