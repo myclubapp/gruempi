@@ -195,7 +195,7 @@ const TournamentDetail = () => {
   const handleSaveTeam = async () => {
     if (!editingTeam) return;
 
-    // Update team info
+    // Update team info including category
     const { error } = await supabase
       .from("teams")
       .update({
@@ -203,6 +203,7 @@ const TournamentDetail = () => {
         contact_name: editingTeam.contact_name,
         contact_email: editingTeam.contact_email,
         contact_phone: editingTeam.contact_phone,
+        category_id: editingTeam.category_id,
       })
       .eq("id", editingTeam.id);
 
@@ -653,6 +654,21 @@ const TournamentDetail = () => {
                   />
                 </div>
                 <div className="space-y-2">
+                  <Label htmlFor="category-id">Kategorie</Label>
+                  <select
+                    id="category-id"
+                    value={editingTeam.category_id}
+                    onChange={(e) => setEditingTeam({ ...editingTeam, category_id: e.target.value, group_id: '' })}
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  >
+                    {categories.map((category) => (
+                      <option key={category.id} value={category.id}>
+                        {category.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="space-y-2">
                   <Label htmlFor="group-id">Gruppe</Label>
                   <select
                     id="group-id"
@@ -665,12 +681,12 @@ const TournamentDetail = () => {
                       .filter(g => g.category_id === editingTeam.category_id)
                       .map((group) => (
                         <option key={group.id} value={group.id}>
-                          {group.name} ({group.category?.name})
+                          {group.name}
                         </option>
                       ))}
                   </select>
                   <p className="text-xs text-muted-foreground">
-                    Nur Gruppen der gleichen Kategorie werden angezeigt
+                    Nur Gruppen der gewählten Kategorie werden angezeigt
                   </p>
                 </div>
               </div>
