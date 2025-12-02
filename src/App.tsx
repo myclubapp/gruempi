@@ -12,6 +12,8 @@ import CreateTournament from "./pages/CreateTournament";
 import TournamentDetail from "./pages/TournamentDetail";
 import PublicTournaments from "./pages/PublicTournaments";
 import PublicTournamentDetail from "./pages/PublicTournamentDetail";
+import PlayerRegistration from "./pages/PlayerRegistration";
+import RegistrationSuccess from "./pages/RegistrationSuccess";
 import ProtectedRoute from "./components/ProtectedRoute";
 
 const queryClient = new QueryClient();
@@ -28,6 +30,8 @@ const App = () => (
           <Route path="/auth" element={<Auth />} />
           <Route path="/tournaments" element={<PublicTournaments />} />
           <Route path="/tournaments/:id" element={<PublicTournamentDetail />} />
+          <Route path="/teams/:teamId/register/:token" element={<PlayerRegistration />} />
+          <Route path="/tournaments/:teamId/registration-success" element={<RegistrationSuccess />} />
           <Route
             path="/dashboard"
             element={

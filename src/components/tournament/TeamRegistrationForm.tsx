@@ -9,16 +9,18 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Checkbox } from "@/components/ui/checkbox";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { toast } from "sonner";
-import { ArrowLeft, Plus, X } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import ModernNavigation from "@/components/ModernNavigation";
+import { z } from "zod";
 
-interface Player {
-  name: string;
-  jersey_number: string;
-  license_number: string;
-  is_licensed: boolean;
-  position: string;
-}
+const teamAdminSchema = z.object({
+  first_name: z.string().trim().min(1, "Vorname ist erforderlich").max(100, "Vorname zu lang"),
+  last_name: z.string().trim().min(1, "Nachname ist erforderlich").max(100, "Nachname zu lang"),
+  email: z.string().trim().email("Ungültige E-Mail-Adresse").max(255, "E-Mail zu lang"),
+  phone: z.string().trim().min(1, "Telefonnummer ist erforderlich").max(50, "Telefonnummer zu lang"),
+  team_name: z.string().trim().min(1, "Teamname ist erforderlich").max(100, "Teamname zu lang"),
+  costume_description: z.string().trim().max(500, "Beschreibung zu lang").optional(),
+});
 
 interface TeamRegistrationFormProps {
   tournament: {
@@ -45,75 +47,39 @@ const TeamRegistrationForm = ({ tournament, categories, onBack }: TeamRegistrati
   const [formData, setFormData] = useState({
     team_name: "",
     category_id: "",
-    contact_name: "",
-    contact_email: "",
-    contact_phone: "",
-    supervisor_name: "",
+    first_name: "",
+    last_name: "",
+    email: "",
+    phone: "",
     costume_description: "",
     payment_method: "",
   });
-
-  const [players, setPlayers] = useState<Player[]>([
-    { name: "", jersey_number: "", license_number: "", is_licensed: false, position: "" },
-  ]);
 
   const [rulesAccepted, setRulesAccepted] = useState(false);
   const [termsAccepted, setTermsAccepted] = useState(false);
 
   const selectedCategory = categories.find((c) => c.id === formData.category_id);
 
-  const addPlayer = () => {
-    if (!selectedCategory || players.length >= selectedCategory.max_players) {
-      toast.error(`Max. ${selectedCategory?.max_players} Spieler erlaubt`);
-      return;
-    }
-    setPlayers([
-      ...players,
-      { name: "", jersey_number: "", license_number: "", is_licensed: false, position: "" },
-    ]);
-  };
-
-  const removePlayer = (index: number) => {
-    if (players.length <= 1) {
-      toast.error("Mindestens ein Spieler erforderlich");
-      return;
-    }
-    setPlayers(players.filter((_, i) => i !== index));
-  };
-
-  const updatePlayer = (index: number, field: keyof Player, value: string | boolean) => {
-    const updated = [...players];
-    updated[index] = { ...updated[index], [field]: value };
-    setPlayers(updated);
-  };
-
   const validateForm = () => {
-    if (!formData.team_name.trim()) {
-      toast.error("Teamname ist erforderlich");
-      return false;
+    // Validate using zod schema
+    try {
+      teamAdminSchema.parse({
+        first_name: formData.first_name,
+        last_name: formData.last_name,
+        email: formData.email,
+        phone: formData.phone,
+        team_name: formData.team_name,
+        costume_description: formData.costume_description,
+      });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        error.errors.forEach((err) => toast.error(err.message));
+        return false;
+      }
     }
 
     if (!formData.category_id) {
       toast.error("Bitte wähle eine Kategorie");
-      return false;
-    }
-
-    if (!formData.contact_name.trim() || !formData.contact_email.trim()) {
-      toast.error("Kontaktdaten sind erforderlich");
-      return false;
-    }
-
-    if (!selectedCategory) return false;
-
-    const validPlayers = players.filter((p) => p.name.trim());
-    if (validPlayers.length < selectedCategory.min_players) {
-      toast.error(`Mindestens ${selectedCategory.min_players} Spieler erforderlich`);
-      return false;
-    }
-
-    const licensedCount = validPlayers.filter((p) => p.is_licensed).length;
-    if (licensedCount > selectedCategory.max_licensed_players) {
-      toast.error(`Max. ${selectedCategory.max_licensed_players} lizenzierte Spieler erlaubt`);
       return false;
     }
 
@@ -137,20 +103,19 @@ const TeamRegistrationForm = ({ tournament, categories, onBack }: TeamRegistrati
     setLoading(true);
 
     try {
-      // Create team
+      // Create team with validated data
       const { data: team, error: teamError } = await supabase
         .from("teams")
         .insert({
           tournament_id: tournament.id,
           category_id: formData.category_id,
-          name: formData.team_name,
-          contact_name: formData.contact_name,
-          contact_email: formData.contact_email,
-          contact_phone: formData.contact_phone || null,
-          supervisor_name: formData.supervisor_name || null,
-          costume_description: formData.costume_description || null,
+          name: formData.team_name.trim(),
+          contact_name: `${formData.first_name.trim()} ${formData.last_name.trim()}`,
+          contact_email: formData.email.trim().toLowerCase(),
+          contact_phone: formData.phone.trim(),
+          costume_description: formData.costume_description?.trim() || null,
           payment_method: formData.payment_method,
-          payment_status: formData.payment_method === "manual" ? "pending" : "pending",
+          payment_status: "pending",
           rules_accepted: rulesAccepted,
           terms_accepted: termsAccepted,
         })
@@ -159,26 +124,8 @@ const TeamRegistrationForm = ({ tournament, categories, onBack }: TeamRegistrati
 
       if (teamError) throw teamError;
 
-      // Create players
-      const validPlayers = players.filter((p) => p.name.trim());
-      const playerInserts = validPlayers.map((player) => ({
-        team_id: team.id,
-        name: player.name,
-        jersey_number: player.jersey_number ? parseInt(player.jersey_number) : null,
-        license_number: player.license_number || null,
-        is_licensed: player.is_licensed,
-        position: player.position || null,
-      }));
-
-      const { error: playersError } = await supabase
-        .from("team_players")
-        .insert(playerInserts);
-
-      if (playersError) throw playersError;
-
       // Handle payment
       if (formData.payment_method === "stripe") {
-        // Call Stripe payment edge function
         const { data: paymentData, error: paymentError } = await supabase.functions.invoke(
           "create-team-payment",
           {
@@ -191,12 +138,10 @@ const TeamRegistrationForm = ({ tournament, categories, onBack }: TeamRegistrati
 
         if (paymentError) throw paymentError;
 
-        // Redirect to Stripe checkout
         if (paymentData?.url) {
           window.open(paymentData.url, "_blank");
         }
       } else if (formData.payment_method === "qr_invoice") {
-        // Generate and download QR invoice
         const response = await fetch(
           `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-qr-invoice`,
           {
@@ -213,7 +158,6 @@ const TeamRegistrationForm = ({ tournament, categories, onBack }: TeamRegistrati
           throw new Error("Fehler beim Generieren der QR-Rechnung");
         }
 
-        // Get HTML and open in new window
         const html = await response.text();
         const blob = new Blob([html], { type: "text/html" });
         const url = URL.createObjectURL(blob);
@@ -221,7 +165,7 @@ const TeamRegistrationForm = ({ tournament, categories, onBack }: TeamRegistrati
       }
 
       toast.success("Team erfolgreich angemeldet!");
-      navigate(`/tournaments/${tournament.id}/registration-success`);
+      navigate(`/tournaments/${team.id}/registration-success`);
     } catch (error: any) {
       console.error("Error registering team:", error);
       toast.error("Fehler bei der Anmeldung: " + error.message);
@@ -296,139 +240,59 @@ const TeamRegistrationForm = ({ tournament, categories, onBack }: TeamRegistrati
             </CardContent>
           </Card>
 
-          {/* Players */}
+          {/* Team Admin / Kontaktdaten */}
           <Card>
             <CardHeader>
-              <CardTitle>Spieler</CardTitle>
+              <CardTitle>Team-Admin Kontaktdaten</CardTitle>
               <CardDescription>
-                {selectedCategory
-                  ? `${selectedCategory.min_players} - ${selectedCategory.max_players} Spieler, max. ${selectedCategory.max_licensed_players} lizenziert`
-                  : "Wähle zuerst eine Kategorie"}
+                Nach der Anmeldung erhältst du einen Link zum Teilen mit deinen Spielern
               </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {players.map((player, index) => (
-                <div key={index} className="p-4 border border-border rounded-lg space-y-3">
-                  <div className="flex items-center justify-between">
-                    <h4 className="font-semibold">Spieler {index + 1}</h4>
-                    {players.length > 1 && (
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => removePlayer(index)}
-                      >
-                        <X className="w-4 h-4" />
-                      </Button>
-                    )}
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    <div className="space-y-2">
-                      <Label>Name *</Label>
-                      <Input
-                        value={player.name}
-                        onChange={(e) => updatePlayer(index, "name", e.target.value)}
-                        required
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label>Trikotnummer</Label>
-                      <Input
-                        type="number"
-                        value={player.jersey_number}
-                        onChange={(e) => updatePlayer(index, "jersey_number", e.target.value)}
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label>Position</Label>
-                      <Input
-                        value={player.position}
-                        onChange={(e) => updatePlayer(index, "position", e.target.value)}
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label>Lizenznummer</Label>
-                      <Input
-                        value={player.license_number}
-                        onChange={(e) => updatePlayer(index, "license_number", e.target.value)}
-                      />
-                    </div>
-                  </div>
-
-                  <div className="flex items-center space-x-2">
-                    <Checkbox
-                      checked={player.is_licensed}
-                      onCheckedChange={(checked) =>
-                        updatePlayer(index, "is_licensed", checked as boolean)
-                      }
-                    />
-                    <Label>Lizenzierter Spieler</Label>
-                  </div>
-                </div>
-              ))}
-
-              {selectedCategory && players.length < selectedCategory.max_players && (
-                <Button type="button" variant="outline" onClick={addPlayer} className="w-full">
-                  <Plus className="w-4 h-4 mr-2" />
-                  Spieler hinzufügen
-                </Button>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Contact */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Kontaktdaten</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="contact_name">Name *</Label>
+                  <Label htmlFor="first_name">Vorname *</Label>
                   <Input
-                    id="contact_name"
-                    value={formData.contact_name}
-                    onChange={(e) => setFormData({ ...formData, contact_name: e.target.value })}
+                    id="first_name"
+                    value={formData.first_name}
+                    onChange={(e) => setFormData({ ...formData, first_name: e.target.value })}
+                    maxLength={100}
                     required
                   />
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="contact_email">Email *</Label>
+                  <Label htmlFor="last_name">Nachname *</Label>
                   <Input
-                    id="contact_email"
+                    id="last_name"
+                    value={formData.last_name}
+                    onChange={(e) => setFormData({ ...formData, last_name: e.target.value })}
+                    maxLength={100}
+                    required
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="email">E-Mail *</Label>
+                  <Input
+                    id="email"
                     type="email"
-                    value={formData.contact_email}
-                    onChange={(e) =>
-                      setFormData({ ...formData, contact_email: e.target.value })
-                    }
+                    value={formData.email}
+                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                    maxLength={255}
                     required
                   />
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="contact_phone">Telefon</Label>
+                  <Label htmlFor="phone">Telefonnummer *</Label>
                   <Input
-                    id="contact_phone"
-                    value={formData.contact_phone}
-                    onChange={(e) =>
-                      setFormData({ ...formData, contact_phone: e.target.value })
-                    }
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="supervisor_name">Betreuer</Label>
-                  <Input
-                    id="supervisor_name"
-                    value={formData.supervisor_name}
-                    onChange={(e) =>
-                      setFormData({ ...formData, supervisor_name: e.target.value })
-                    }
+                    id="phone"
+                    type="tel"
+                    value={formData.phone}
+                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                    maxLength={50}
+                    required
                   />
                 </div>
               </div>
