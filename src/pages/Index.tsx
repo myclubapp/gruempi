@@ -2,6 +2,7 @@ import Navigation from "@/components/Navigation";
 import Hero from "@/components/Hero";
 import Features from "@/components/Features";
 import CallToAction from "@/components/CallToAction";
+import TournamentCalendar from "@/components/TournamentCalendar";
 
 const Index = () => {
   return (
@@ -9,6 +10,22 @@ const Index = () => {
       <Navigation />
       <Hero />
       <Features />
+      
+      {/* Tournament Calendar Section */}
+      <section className="py-20 px-4 bg-muted/30">
+        <div className="container mx-auto">
+          <div className="text-center mb-12">
+            <h2 className="text-4xl font-bold text-foreground mb-4">
+              Kommende Grümpelturniere
+            </h2>
+            <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
+              Entdecke spannende Turniere in deiner Region und melde dein Team an
+            </p>
+          </div>
+          <TournamentCalendar />
+        </div>
+      </section>
+      
       <CallToAction />
       
       {/* Footer */}

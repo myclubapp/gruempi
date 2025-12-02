@@ -32,6 +32,8 @@ const CreateTournament = () => {
     description: "",
     rules: "",
     terms_and_conditions: "",
+    sport_type: "",
+    registration_deadline: "",
   });
 
   const [rulesPdf, setRulesPdf] = useState<File | null>(null);
@@ -111,6 +113,8 @@ const CreateTournament = () => {
           terms_and_conditions: formData.terms_and_conditions,
           rules_pdf_url: rulesPdfUrl,
           terms_pdf_url: termsPdfUrl,
+          sport_type: formData.sport_type || null,
+          registration_deadline: formData.registration_deadline || null,
           status: "draft",
         })
         .select()
@@ -217,6 +221,23 @@ const CreateTournament = () => {
                 />
               </div>
 
+              <div className="space-y-2">
+                <Label htmlFor="sport_type">Sportart *</Label>
+                <select
+                  id="sport_type"
+                  value={formData.sport_type}
+                  onChange={(e) => setFormData({ ...formData, sport_type: e.target.value })}
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                  required
+                >
+                  <option value="">Bitte wählen...</option>
+                  <option value="volleyball">Volleyball</option>
+                  <option value="handball">Handball</option>
+                  <option value="unihockey">Unihockey</option>
+                  <option value="fussball">Fussball</option>
+                </select>
+              </div>
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="date">Datum *</Label>
@@ -277,6 +298,19 @@ const CreateTournament = () => {
                   placeholder="z.B. BBC Arena, Schaffhausen"
                   required
                 />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="registration_deadline">Anmeldeschluss</Label>
+                <Input
+                  id="registration_deadline"
+                  type="datetime-local"
+                  value={formData.registration_deadline}
+                  onChange={(e) => setFormData({ ...formData, registration_deadline: e.target.value })}
+                />
+                <p className="text-sm text-muted-foreground">
+                  Nach diesem Zeitpunkt sind keine Anmeldungen mehr möglich
+                </p>
               </div>
 
               <div className="space-y-2">
