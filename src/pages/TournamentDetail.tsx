@@ -278,6 +278,15 @@ const TournamentDetail = () => {
               )}
               {tournament.status !== "draft" && (
                 <Button
+                  variant="outline"
+                  onClick={() => navigate(`/dashboard/tournament/${id}/cockpit`)}
+                  className="gap-2"
+                >
+                  🎮 Cockpit öffnen
+                </Button>
+              )}
+              {tournament.status !== "draft" && (
+                <Button
                   variant="ghost"
                   size="icon"
                   onClick={() => window.open(getMicrositeUrl(), "_blank")}

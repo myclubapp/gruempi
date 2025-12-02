@@ -213,7 +213,7 @@ const MatchList = ({ tournamentId, categoryId, isAdmin = false }: MatchListProps
                         <span className="font-semibold min-w-[120px]">
                           {homeTeam?.name || "Team nicht gefunden"}
                         </span>
-                        {isAdmin && match.status !== "completed" ? (
+                        {isAdmin ? (
                           <div className="flex items-center gap-2">
                             <Input
                               type="number"
@@ -242,12 +242,12 @@ const MatchList = ({ tournamentId, categoryId, isAdmin = false }: MatchListProps
                           {awayTeam?.name || "Team nicht gefunden"}
                         </span>
                       </div>
-                      {isAdmin && match.status !== "completed" && isEditing && (
+                      {isAdmin && isEditing && (
                         <Button onClick={() => handleSaveScore(match.id)} size="sm">
                           Speichern
                         </Button>
                       )}
-                      {match.status === "completed" && (
+                      {!isAdmin && match.status === "completed" && (
                         <Badge variant="default" className="bg-green-600">
                           Beendet
                         </Badge>
