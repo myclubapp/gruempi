@@ -166,11 +166,19 @@ const TeamRegistrationForm = ({ tournament, categories, onBack }: TeamRegistrati
 
       // Send confirmation email
       try {
-        await supabase.functions.invoke("send-team-confirmation", {
+        console.log("Sending confirmation email for team:", team.id);
+        const { data: emailData, error: emailError } = await supabase.functions.invoke("send-team-confirmation", {
           body: { team_id: team.id },
         });
+        
+        if (emailError) {
+          console.error("Error sending confirmation email:", emailError);
+          toast.error("Team registriert, aber E-Mail konnte nicht versendet werden");
+        } else {
+          console.log("Confirmation email sent successfully", emailData);
+        }
       } catch (emailError) {
-        console.error("Error sending confirmation email:", emailError);
+        console.error("Exception sending confirmation email:", emailError);
         // Don't block navigation if email fails
       }
 
