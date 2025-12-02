@@ -39,8 +39,8 @@ const Navigation = () => {
 
           {/* CTA Buttons */}
           <div className="hidden md:flex items-center gap-3">
-            <Button variant="ghost">Anmelden</Button>
-            <Button variant="hero">Turnier erstellen</Button>
+            <Button variant="ghost" onClick={() => window.location.href = "/auth"}>Anmelden</Button>
+            <Button variant="hero" onClick={() => window.location.href = "/auth"}>Turnier erstellen</Button>
           </div>
 
           {/* Mobile Menu */}
