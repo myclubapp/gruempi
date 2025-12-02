@@ -22,6 +22,8 @@ interface Tournament {
   custom_domain: string | null;
   domain_status: string;
   domain_verification_token: string | null;
+  sport_type: string | null;
+  registration_deadline: string | null;
 }
 
 const TournamentDetail = () => {
@@ -145,6 +147,16 @@ const TournamentDetail = () => {
             </span>
             <span>📍 {tournament.location}</span>
             <span>💰 CHF {tournament.entry_fee.toFixed(2)}</span>
+            {tournament.sport_type && (
+              <span>
+                🏐 {tournament.sport_type.charAt(0).toUpperCase() + tournament.sport_type.slice(1)}
+              </span>
+            )}
+            {tournament.registration_deadline && (
+              <span>
+                ⏰ Anmeldeschluss: {new Date(tournament.registration_deadline).toLocaleString("de-CH")}
+              </span>
+            )}
             {tournament.custom_domain && (
               <span className="flex items-center gap-1">
                 <Globe className="w-4 h-4" />

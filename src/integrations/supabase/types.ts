@@ -381,8 +381,10 @@ export type Database = {
           location: string
           name: string
           organizer_id: string
+          registration_deadline: string | null
           rules: string | null
           rules_pdf_url: string | null
+          sport_type: string | null
           start_time: string | null
           status: string
           terms_and_conditions: string | null
@@ -402,8 +404,10 @@ export type Database = {
           location: string
           name: string
           organizer_id: string
+          registration_deadline?: string | null
           rules?: string | null
           rules_pdf_url?: string | null
+          sport_type?: string | null
           start_time?: string | null
           status?: string
           terms_and_conditions?: string | null
@@ -423,8 +427,10 @@ export type Database = {
           location?: string
           name?: string
           organizer_id?: string
+          registration_deadline?: string | null
           rules?: string | null
           rules_pdf_url?: string | null
+          sport_type?: string | null
           start_time?: string | null
           status?: string
           terms_and_conditions?: string | null
