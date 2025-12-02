@@ -10,6 +10,7 @@ import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
 import CreateTournament from "./pages/CreateTournament";
 import TournamentDetail from "./pages/TournamentDetail";
+import TournamentCockpit from "./pages/TournamentCockpit";
 import PublicTournaments from "./pages/PublicTournaments";
 import PublicTournamentDetail from "./pages/PublicTournamentDetail";
 import PlayerRegistration from "./pages/PlayerRegistration";
@@ -54,6 +55,14 @@ const App = () => (
             element={
               <ProtectedRoute>
                 <TournamentDetail />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/dashboard/tournament/:id/cockpit"
+            element={
+              <ProtectedRoute>
+                <TournamentCockpit />
               </ProtectedRoute>
             }
           />
