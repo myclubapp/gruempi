@@ -46,6 +46,7 @@ const TournamentDetail = () => {
   const [tournament, setTournament] = useState<Tournament | null>(null);
   const [organizerProfile, setOrganizerProfile] = useState<any>(null);
   const [teams, setTeams] = useState<any[]>([]);
+  const [categories, setCategories] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [editingTeam, setEditingTeam] = useState<any>(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
@@ -86,12 +87,23 @@ const TournamentDetail = () => {
       }
     }
 
+    // Load categories
+    const { data: categoriesData, error: categoriesError } = await supabase
+      .from("tournament_categories")
+      .select("*")
+      .eq("tournament_id", id)
+      .order("name", { ascending: true });
+
+    if (!categoriesError && categoriesData) {
+      setCategories(categoriesData);
+    }
+
     // Load teams
     const { data: teamsData, error: teamsError } = await supabase
       .from("teams")
       .select(`
         *,
-        category:tournament_categories(name)
+        category:tournament_categories(id, name)
       `)
       .eq("tournament_id", id)
       .order("created_at", { ascending: false });
@@ -389,15 +401,9 @@ const TournamentDetail = () => {
           </TabsContent>
 
           <TabsContent value="teams">
-            <Card>
-              <CardHeader>
-                <CardTitle>Angemeldete Teams ({teams.length})</CardTitle>
-                <CardDescription>
-                  Verwalten Sie die Team-Anmeldungen
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                {teams.length === 0 ? (
+            {teams.length === 0 ? (
+              <Card>
+                <CardContent className="pt-6">
                   <div className="text-center py-12 text-muted-foreground">
                     <Users className="w-12 h-12 mx-auto mb-4 opacity-50" />
                     <p>Noch keine Teams angemeldet</p>
@@ -407,9 +413,37 @@ const TournamentDetail = () => {
                       </p>
                     )}
                   </div>
-                ) : (
-                  <div className="space-y-4">
-                    {teams.map((team) => (
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="space-y-6">
+                {categories.map((category) => {
+                  const categoryTeams = teams.filter(
+                    (team) => team.category?.id === category.id
+                  );
+                  
+                  if (categoryTeams.length === 0) return null;
+
+                  return (
+                    <Card key={category.id}>
+                      <CardHeader>
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <CardTitle>{category.name}</CardTitle>
+                            <CardDescription>
+                              {categoryTeams.length} {categoryTeams.length === 1 ? 'Team' : 'Teams'} angemeldet
+                              {' • '}
+                              {categoryTeams.filter(t => t.payment_status === 'paid').length} bezahlt
+                            </CardDescription>
+                          </div>
+                          <Badge variant="outline" className="text-lg px-4 py-1">
+                            {categoryTeams.length}
+                          </Badge>
+                        </div>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="space-y-4">
+                          {categoryTeams.map((team) => (
                       <Card key={team.id}>
                         <CardContent className="pt-6">
                           <div className="flex items-start justify-between">
@@ -477,12 +511,15 @@ const TournamentDetail = () => {
                             </div>
                           </div>
                         </CardContent>
-                      </Card>
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+                            </Card>
+                          ))}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+            )}
           </TabsContent>
 
           <TabsContent value="payment">
