@@ -42,20 +42,11 @@ interface Category {
   entry_fee: number;
 }
 
-interface Sponsor {
-  id: string;
-  name: string;
-  logo_url: string | null;
-  website_url: string | null;
-  tier: string;
-}
-
 const PublicTournamentDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const [tournament, setTournament] = useState<Tournament | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
-  const [sponsors, setSponsors] = useState<Sponsor[]>([]);
   const [loading, setLoading] = useState(true);
   const [showRegistration, setShowRegistration] = useState(false);
 
@@ -63,14 +54,12 @@ const PublicTournamentDetail = () => {
   const homeRef = useRef<HTMLDivElement>(null);
   const infoRef = useRef<HTMLDivElement>(null);
   const scheduleRef = useRef<HTMLDivElement>(null);
-  const sponsorsRef = useRef<HTMLDivElement>(null);
 
   const handleNavigate = (section: string) => {
     const refs: Record<string, React.RefObject<HTMLDivElement>> = {
       home: homeRef,
       info: infoRef,
       schedule: scheduleRef,
-      sponsors: sponsorsRef,
     };
 
     // Handle category-specific schedule navigation
@@ -121,17 +110,6 @@ const PublicTournamentDetail = () => {
 
     if (categoriesData) {
       setCategories(categoriesData);
-    }
-
-    // Load sponsors
-    const { data: sponsorsData } = await supabase
-      .from("sponsors")
-      .select("*")
-      .eq("tournament_id", id)
-      .order("display_order");
-
-    if (sponsorsData) {
-      setSponsors(sponsorsData);
     }
 
     setLoading(false);
@@ -372,45 +350,6 @@ const PublicTournamentDetail = () => {
                   </TabsContent>
                 ))}
               </Tabs>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Sponsors Section */}
-        <div ref={sponsorsRef} className="mb-8">
-          <h2 className="text-3xl font-bold mb-6">Sponsoren</h2>
-          <Card>
-            <CardContent className="pt-6">
-              {sponsors.length > 0 ? (
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-                  {sponsors.map((sponsor) => (
-                    <div
-                      key={sponsor.id}
-                      className="flex items-center justify-center p-4 border border-border rounded-lg hover:shadow-md transition-shadow cursor-pointer"
-                      onClick={() => sponsor.website_url && window.open(sponsor.website_url, "_blank")}
-                    >
-                      {sponsor.logo_url ? (
-                        <img
-                          src={sponsor.logo_url}
-                          alt={sponsor.name}
-                          className="max-h-16 w-auto"
-                        />
-                      ) : (
-                        <span className="text-sm font-semibold">{sponsor.name}</span>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center py-8">
-                  <p className="text-lg text-muted-foreground mb-4">
-                    Noch keine Sponsoren
-                  </p>
-                  <p className="text-sm text-muted-foreground">
-                    Turniersponsor werden?
-                  </p>
-                </div>
-              )}
             </CardContent>
           </Card>
         </div>

@@ -101,12 +101,6 @@ const SimplifiedNavigation = ({ categories = [], onNavigate }: SimplifiedNavigat
             </DropdownMenu>
           )}
 
-          <button
-            onClick={() => handleSectionClick("sponsors")}
-            className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
-          >
-            Sponsoren
-          </button>
         </div>
 
         {/* Right Side Actions */}

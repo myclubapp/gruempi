@@ -13,7 +13,7 @@ import { ArrowLeft, Globe, Users, Settings as SettingsIcon, Award, CreditCard, E
 import { toast } from "sonner";
 import DomainSettings from "@/components/tournament/DomainSettings";
 import PaymentSettings from "@/components/tournament/PaymentSettings";
-import SponsorManagement from "@/components/tournament/SponsorManagement";
+
 import TournamentSettings from "@/components/tournament/TournamentSettings";
 import TournamentCategoriesRules from "@/components/tournament/TournamentCategoriesRules";
 import ScheduleConfig from "@/components/tournament/ScheduleConfig";
@@ -353,7 +353,6 @@ const TournamentDetail = () => {
             <TabsTrigger value="schedule">Spielplan</TabsTrigger>
             <TabsTrigger value="payment">Zahlungen</TabsTrigger>
             <TabsTrigger value="domain">Domain</TabsTrigger>
-            <TabsTrigger value="sponsors">Sponsoren</TabsTrigger>
             <TabsTrigger value="settings">Einstellungen</TabsTrigger>
           </TabsList>
 
@@ -627,9 +626,6 @@ const TournamentDetail = () => {
             />
           </TabsContent>
 
-          <TabsContent value="sponsors">
-            <SponsorManagement tournamentId={tournament.id} />
-          </TabsContent>
 
           <TabsContent value="settings" className="space-y-6">
             <ScheduleConfig tournamentId={id!} />
