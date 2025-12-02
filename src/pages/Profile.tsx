@@ -16,6 +16,7 @@ export default function Profile() {
     full_name: "",
     organization: "",
     phone: "",
+    creditor_name: "",
     creditor_account: "",
     creditor_address: "",
     creditor_building_number: "",
@@ -50,6 +51,7 @@ export default function Profile() {
           full_name: data.full_name || "",
           organization: data.organization || "",
           phone: data.phone || "",
+          creditor_name: data.creditor_name || "",
           creditor_account: data.creditor_account || "",
           creditor_address: data.creditor_address || "",
           creditor_building_number: data.creditor_building_number || "",
@@ -78,6 +80,7 @@ export default function Profile() {
           full_name: formData.full_name,
           organization: formData.organization,
           phone: formData.phone,
+          creditor_name: formData.creditor_name,
           creditor_account: formData.creditor_account,
           creditor_address: formData.creditor_address,
           creditor_building_number: formData.creditor_building_number,
@@ -180,6 +183,19 @@ export default function Profile() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="creditor_name">Name des Empfängers *</Label>
+                <Input
+                  id="creditor_name"
+                  value={formData.creditor_name}
+                  onChange={(e) => setFormData({ ...formData, creditor_name: e.target.value })}
+                  placeholder="FC Beispiel oder Verein Muster"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Name des Empfängers für die QR-Rechnung
+                </p>
+              </div>
+
               <div className="space-y-2">
                 <Label htmlFor="creditor_account">IBAN *</Label>
                 <Input
