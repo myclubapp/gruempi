@@ -22,7 +22,7 @@ const Hero = () => {
           </p>
           
           <div className="flex flex-col sm:flex-row gap-4 justify-center items-center animate-slide-up" style={{ animationDelay: "0.3s" }}>
-            <Button variant="accent" size="lg" className="w-full sm:w-auto">
+            <Button variant="accent" size="lg" className="w-full sm:w-auto" onClick={() => window.location.href = "/auth"}>
               <Calendar className="w-5 h-5" />
               Turnier erstellen
             </Button>
@@ -30,9 +30,10 @@ const Hero = () => {
               variant="outline" 
               size="lg" 
               className="w-full sm:w-auto bg-primary-foreground/10 backdrop-blur-sm border-primary-foreground/30 text-primary-foreground hover:bg-primary-foreground/20"
+              onClick={() => window.location.href = "/tournaments"}
             >
               <Users className="w-5 h-5" />
-              Demo ansehen
+              Turniere ansehen
             </Button>
           </div>
         </div>
