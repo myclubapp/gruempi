@@ -5,3 +5,9 @@ verify_jwt = false
 
 [functions.generate-qr-invoice]
 verify_jwt = false
+
+[functions.send-team-confirmation]
+verify_jwt = false
+
+[functions.manage-vercel-domain]
+verify_jwt = false
