@@ -14,6 +14,7 @@ import { toast } from "sonner";
 import DomainSettings from "@/components/tournament/DomainSettings";
 import PaymentSettings from "@/components/tournament/PaymentSettings";
 import SponsorManagement from "@/components/tournament/SponsorManagement";
+import TournamentSettings from "@/components/tournament/TournamentSettings";
 
 interface Tournament {
   id: string;
@@ -579,36 +580,10 @@ const TournamentDetail = () => {
           </TabsContent>
 
           <TabsContent value="settings">
-            <Card>
-              <CardHeader>
-                <CardTitle>Turnier-Einstellungen</CardTitle>
-                <CardDescription>
-                  Verwalten Sie die Einstellungen Ihres Turniers
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div>
-                    <h4 className="font-semibold mb-2">Status</h4>
-                    <div className="flex gap-2">
-                      {["draft", "published", "ongoing", "completed"].map((status) => (
-                        <Button
-                          key={status}
-                          variant={tournament.status === status ? "default" : "outline"}
-                          size="sm"
-                          onClick={() => updateStatus(status)}
-                        >
-                          {status === "draft" && "Entwurf"}
-                          {status === "published" && "Veröffentlicht"}
-                          {status === "ongoing" && "Laufend"}
-                          {status === "completed" && "Abgeschlossen"}
-                        </Button>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+            <TournamentSettings
+              tournament={tournament}
+              onUpdate={loadTournament}
+            />
           </TabsContent>
         </Tabs>
 
