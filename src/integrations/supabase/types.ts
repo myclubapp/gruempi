@@ -375,8 +375,10 @@ export type Database = {
           name: string
           organizer_id: string
           rules: string | null
+          rules_pdf_url: string | null
           status: string
           terms_and_conditions: string | null
+          terms_pdf_url: string | null
           updated_at: string | null
         }
         Insert: {
@@ -392,8 +394,10 @@ export type Database = {
           name: string
           organizer_id: string
           rules?: string | null
+          rules_pdf_url?: string | null
           status?: string
           terms_and_conditions?: string | null
+          terms_pdf_url?: string | null
           updated_at?: string | null
         }
         Update: {
@@ -409,8 +413,10 @@ export type Database = {
           name?: string
           organizer_id?: string
           rules?: string | null
+          rules_pdf_url?: string | null
           status?: string
           terms_and_conditions?: string | null
+          terms_pdf_url?: string | null
           updated_at?: string | null
         }
         Relationships: [
