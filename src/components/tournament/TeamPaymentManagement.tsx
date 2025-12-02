@@ -110,15 +110,28 @@ const TeamPaymentManagement = ({ tournamentId, teams, onUpdate }: TeamPaymentMan
 
       if (error) throw error;
 
-      // The function returns HTML directly as text
-      const htmlContent = typeof data === 'string' ? data : data?.html || String(data);
-      
-      // Open the HTML in a new tab
-      const blob = new Blob([htmlContent], { type: "text/html" });
-      const url = URL.createObjectURL(blob);
-      window.open(url, "_blank");
-
-      toast.success("QR-Rechnung generiert");
+      // The function returns JSON with base64 PDF
+      if (data?.pdf) {
+        // Convert base64 to blob and open
+        const binaryString = atob(data.pdf);
+        const bytes = new Uint8Array(binaryString.length);
+        for (let i = 0; i < binaryString.length; i++) {
+          bytes[i] = binaryString.charCodeAt(i);
+        }
+        const blob = new Blob([bytes], { type: "application/pdf" });
+        const url = URL.createObjectURL(blob);
+        window.open(url, "_blank");
+        toast.success("QR-Rechnung PDF generiert");
+      } else if (data?.error) {
+        throw new Error(data.error);
+      } else {
+        // Fallback for HTML response (legacy)
+        const htmlContent = typeof data === 'string' ? data : String(data);
+        const blob = new Blob([htmlContent], { type: "text/html" });
+        const url = URL.createObjectURL(blob);
+        window.open(url, "_blank");
+        toast.success("QR-Rechnung generiert");
+      }
     } catch (error: any) {
       console.error("QR Invoice error:", error);
       toast.error("Fehler beim Generieren: " + error.message);
