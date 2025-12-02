@@ -298,6 +298,7 @@ serve(async (req) => {
       width: 46mm;
       height: 46mm;
       margin: 5mm 0;
+      position: relative;
     }
     .qr-code-container svg {
       width: 100%;
@@ -308,8 +309,9 @@ serve(async (req) => {
       width: 7mm;
       height: 7mm;
       background: black;
-      left: calc(62mm + 5mm + 19.5mm);
-      top: calc(5mm + 5mm + 19.5mm);
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
     }
     .swiss-cross::before,
     .swiss-cross::after {
@@ -426,6 +428,7 @@ serve(async (req) => {
         <h3>Zahlteil</h3>
         <div class="qr-code-container">
           ${qrCodeSvg}
+          <div class="swiss-cross"></div>
         </div>
         <div class="amount-section">
           <div class="amount-box">
@@ -457,8 +460,6 @@ serve(async (req) => {
         <p class="value">${team.contact_name}</p>
       </div>
     </div>
-    
-    <div class="swiss-cross"></div>
   </div>
 
   <div class="no-print" style="text-align: center; padding: 20px;">
