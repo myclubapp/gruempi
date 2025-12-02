@@ -645,12 +645,17 @@ export default function MatchScheduleGenerator({ tournamentId }: MatchScheduleGe
                 
                 return (
                   <div className="overflow-x-auto">
-                    <div className="min-w-max">
+                    <div className="w-full">
                       {/* Header row with field numbers */}
-                      <div className="grid gap-2 mb-2" style={{ gridTemplateColumns: `80px repeat(${maxField}, minmax(180px, 1fr))` }}>
-                        <div className="font-medium text-sm text-muted-foreground p-2">Zeit</div>
+                      <div 
+                        className="grid gap-3 mb-3" 
+                        style={{ 
+                          gridTemplateColumns: `100px repeat(${maxField}, 1fr)` 
+                        }}
+                      >
+                        <div className="font-medium text-sm text-muted-foreground p-3">Zeit</div>
                         {fields.map(field => (
-                          <div key={field} className="font-medium text-sm text-center p-2 bg-muted rounded">
+                          <div key={field} className="font-medium text-sm text-center p-3 bg-muted rounded-lg">
                             Platz {field}
                           </div>
                         ))}
@@ -676,48 +681,54 @@ export default function MatchScheduleGenerator({ tournamentId }: MatchScheduleGe
                         return (
                           <div key={timeKey}>
                             {showBreak && (
-                              <div className="grid gap-2 my-2" style={{ gridTemplateColumns: `80px repeat(${maxField}, minmax(180px, 1fr))` }}>
+                              <div 
+                                className="grid gap-3 my-3" 
+                                style={{ gridTemplateColumns: `100px repeat(${maxField}, 1fr)` }}
+                              >
                                 <div></div>
-                                <div className="col-span-full text-center py-2 text-sm text-muted-foreground bg-muted/50 rounded border-dashed border">
+                                <div 
+                                  className="text-center py-3 text-sm text-muted-foreground bg-muted/50 rounded-lg border-dashed border"
+                                  style={{ gridColumn: `span ${maxField}` }}
+                                >
                                   ⏸ Pause
                                 </div>
                               </div>
                             )}
                             <div 
-                              className="grid gap-2 mb-2" 
-                              style={{ gridTemplateColumns: `80px repeat(${maxField}, minmax(180px, 1fr))` }}
+                              className="grid gap-3 mb-3" 
+                              style={{ gridTemplateColumns: `100px repeat(${maxField}, 1fr)` }}
                             >
-                              <div className="text-sm font-medium p-2 flex items-center justify-center bg-muted/30 rounded">
+                              <div className="text-sm font-semibold p-3 flex items-center justify-center bg-muted/30 rounded-lg">
                                 {timeKey}
                               </div>
                               {fields.map(field => {
                                 const match = matchesAtTime.find(m => m.field_number === field);
                                 if (!match) {
-                                  return <div key={field} className="p-2 border border-dashed rounded bg-muted/10"></div>;
+                                  return <div key={field} className="p-3 border border-dashed rounded-lg bg-muted/10 min-h-[120px]"></div>;
                                 }
                                 return (
                                   <div 
                                     key={field} 
-                                    className={`p-2 border rounded text-xs ${
+                                    className={`p-4 border rounded-lg ${
                                       match.match_type !== 'group' 
                                         ? 'bg-accent/20 border-accent' 
                                         : 'bg-card'
                                     }`}
                                   >
-                                    <div className="flex items-center justify-between mb-1">
-                                      <span className="text-muted-foreground">#{match.match_number}</span>
-                                      <Badge variant={match.match_type !== 'group' ? 'default' : 'outline'} className="text-[10px] px-1 py-0">
+                                    <div className="flex items-center justify-between mb-2">
+                                      <span className="text-muted-foreground text-sm">#{match.match_number}</span>
+                                      <Badge variant={match.match_type !== 'group' ? 'default' : 'outline'} className="text-xs">
                                         {match.categoryName}
                                       </Badge>
                                     </div>
                                     {match.groupName && (
-                                      <div className="text-muted-foreground text-[10px] mb-1">{match.groupName}</div>
+                                      <div className="text-muted-foreground text-xs mb-2">{match.groupName}</div>
                                     )}
-                                    <div className="font-medium truncate" title={`${match.homeTeamName} vs ${match.awayTeamName}`}>
+                                    <div className="font-medium text-sm truncate" title={match.homeTeamName}>
                                       {match.homeTeamName}
                                     </div>
-                                    <div className="text-center text-muted-foreground">vs</div>
-                                    <div className="font-medium truncate" title={`${match.homeTeamName} vs ${match.awayTeamName}`}>
+                                    <div className="text-center text-muted-foreground text-xs py-1">vs</div>
+                                    <div className="font-medium text-sm truncate" title={match.awayTeamName}>
                                       {match.awayTeamName}
                                     </div>
                                   </div>
