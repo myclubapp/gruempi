@@ -1,9 +1,10 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ArrowLeft, Calendar, MapPin, Clock, FileText, Award } from "lucide-react";
 import { toast } from "sonner";
 import SimplifiedNavigation from "@/components/SimplifiedNavigation";
@@ -55,6 +56,36 @@ const PublicTournamentDetail = () => {
   const [sponsors, setSponsors] = useState<Sponsor[]>([]);
   const [loading, setLoading] = useState(true);
   const [showRegistration, setShowRegistration] = useState(false);
+
+  // Refs for scrolling
+  const homeRef = useRef<HTMLDivElement>(null);
+  const infoRef = useRef<HTMLDivElement>(null);
+  const scheduleRef = useRef<HTMLDivElement>(null);
+  const sponsorsRef = useRef<HTMLDivElement>(null);
+
+  const handleNavigate = (section: string) => {
+    const refs: Record<string, React.RefObject<HTMLDivElement>> = {
+      home: homeRef,
+      info: infoRef,
+      schedule: scheduleRef,
+      sponsors: sponsorsRef,
+    };
+
+    // Handle category-specific schedule navigation
+    if (section.startsWith("schedule-")) {
+      scheduleRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      // Optionally switch to the specific category tab after scrolling
+      const categoryId = section.replace("schedule-", "");
+      setTimeout(() => {
+        const tabTrigger = document.querySelector(`[data-category-id="${categoryId}"]`);
+        if (tabTrigger) {
+          (tabTrigger as HTMLElement).click();
+        }
+      }, 500);
+    } else if (refs[section]) {
+      refs[section].current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  };
 
   useEffect(() => {
     loadTournamentData();
@@ -120,9 +151,9 @@ const PublicTournamentDetail = () => {
   };
 
   if (loading) {
-  return (
-    <div className="min-h-screen bg-background">
-      <SimplifiedNavigation />
+    return (
+      <div className="min-h-screen bg-background">
+        <SimplifiedNavigation categories={categories} onNavigate={handleNavigate} />
         <div className="container mx-auto px-4 py-12 flex items-center justify-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
         </div>
@@ -144,20 +175,20 @@ const PublicTournamentDetail = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <SimplifiedNavigation />
+      <SimplifiedNavigation categories={categories} onNavigate={handleNavigate} />
       
       <main className="container mx-auto px-4 py-8">
-        <Button
-          variant="ghost"
-          onClick={() => navigate("/tournaments")}
-          className="mb-6"
-        >
-          <ArrowLeft className="w-4 h-4 mr-2" />
-          Zurück zur Übersicht
-        </Button>
+        {/* Home/Header Section */}
+        <div ref={homeRef} className="mb-8">
+          <Button
+            variant="ghost"
+            onClick={() => navigate("/tournaments")}
+            className="mb-6"
+          >
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Zurück zur Übersicht
+          </Button>
 
-        {/* Header */}
-        <div className="mb-8">
           <div className="flex items-start gap-4 mb-4">
             <div className="text-6xl">{getSportIcon(tournament.sport_type)}</div>
             <div className="flex-1">
@@ -207,139 +238,174 @@ const PublicTournamentDetail = () => {
           )}
         </div>
 
-        {/* Categories */}
-        <Card className="mb-8">
-          <CardHeader>
-            <CardTitle>Kategorien</CardTitle>
-            <CardDescription>
-              Wähle die passende Kategorie für dein Team
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {categories.map((category) => (
-                <div key={category.id} className="p-4 border border-border rounded-lg">
-                  <h3 className="font-semibold text-lg mb-2">{category.name}</h3>
-                  {category.description && (
-                    <p className="text-sm text-muted-foreground mb-3">
-                      {category.description}
-                    </p>
-                  )}
-                  <div className="space-y-1 text-sm">
-                    <p>Spieler: {category.min_players} - {category.max_players}</p>
-                    <p>Max. lizenzierte: {category.max_licensed_players}</p>
-                    {category.min_teams && (
-                      <p className="text-muted-foreground">
-                        Min. {category.min_teams} Teams für Durchführung
+        {/* Turnierinformationen Section */}
+        <div ref={infoRef} className="mb-8">
+          <h2 className="text-3xl font-bold mb-6">Turnierinformationen</h2>
+          
+          {/* Categories */}
+          <Card className="mb-8">
+            <CardHeader>
+              <CardTitle>Kategorien</CardTitle>
+              <CardDescription>
+                Wähle die passende Kategorie für dein Team
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {categories.map((category) => (
+                  <div key={category.id} className="p-4 border border-border rounded-lg">
+                    <h3 className="font-semibold text-lg mb-2">{category.name}</h3>
+                    {category.description && (
+                      <p className="text-sm text-muted-foreground mb-3">
+                        {category.description}
                       </p>
                     )}
-                    {category.max_teams && (
-                      <p className="text-muted-foreground">
-                        Max. {category.max_teams} Teams
-                      </p>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Rules & Terms */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-          {(tournament.rules || tournament.rules_pdf_url) && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <FileText className="w-5 h-5" />
-                  Turnierregeln
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                {tournament.rules && (
-                  <p className="text-sm text-muted-foreground whitespace-pre-wrap mb-3">
-                    {tournament.rules}
-                  </p>
-                )}
-                {tournament.rules_pdf_url && (
-                  <Button
-                    variant="outline"
-                    onClick={() => window.open(tournament.rules_pdf_url!, "_blank")}
-                    className="w-full"
-                  >
-                    PDF herunterladen
-                  </Button>
-                )}
-              </CardContent>
-            </Card>
-          )}
-
-          {(tournament.terms_and_conditions || tournament.terms_pdf_url) && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <FileText className="w-5 h-5" />
-                  Teilnahmebedingungen
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                {tournament.terms_and_conditions && (
-                  <p className="text-sm text-muted-foreground whitespace-pre-wrap mb-3">
-                    {tournament.terms_and_conditions}
-                  </p>
-                )}
-                {tournament.terms_pdf_url && (
-                  <Button
-                    variant="outline"
-                    onClick={() => window.open(tournament.terms_pdf_url!, "_blank")}
-                    className="w-full"
-                  >
-                    PDF herunterladen
-                  </Button>
-                )}
-              </CardContent>
-            </Card>
-          )}
-        </div>
-
-        {/* Sponsors */}
-        <Card className="mb-8">
-          <CardHeader>
-            <CardTitle>Sponsoren</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {sponsors.length > 0 ? (
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-                {sponsors.map((sponsor) => (
-                  <div
-                    key={sponsor.id}
-                    className="flex items-center justify-center p-4 border border-border rounded-lg hover:shadow-md transition-shadow cursor-pointer"
-                    onClick={() => sponsor.website_url && window.open(sponsor.website_url, "_blank")}
-                  >
-                    {sponsor.logo_url ? (
-                      <img
-                        src={sponsor.logo_url}
-                        alt={sponsor.name}
-                        className="max-h-16 w-auto"
-                      />
-                    ) : (
-                      <span className="text-sm font-semibold">{sponsor.name}</span>
-                    )}
+                    <div className="space-y-1 text-sm">
+                      <p>Spieler: {category.min_players} - {category.max_players}</p>
+                      <p>Max. lizenzierte: {category.max_licensed_players}</p>
+                      {category.min_teams && (
+                        <p className="text-muted-foreground">
+                          Min. {category.min_teams} Teams für Durchführung
+                        </p>
+                      )}
+                      {category.max_teams && (
+                        <p className="text-muted-foreground">
+                          Max. {category.max_teams} Teams
+                        </p>
+                      )}
+                    </div>
                   </div>
                 ))}
               </div>
-            ) : (
-              <div className="text-center py-8">
-                <p className="text-lg text-muted-foreground mb-4">
-                  Noch keine Sponsoren
-                </p>
-                <p className="text-sm text-muted-foreground">
-                  Turniersponsor werden?
-                </p>
-              </div>
+            </CardContent>
+          </Card>
+
+          {/* Rules & Terms */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {(tournament.rules || tournament.rules_pdf_url) && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <FileText className="w-5 h-5" />
+                    Turnierregeln
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {tournament.rules && (
+                    <p className="text-sm text-muted-foreground whitespace-pre-wrap mb-3">
+                      {tournament.rules}
+                    </p>
+                  )}
+                  {tournament.rules_pdf_url && (
+                    <Button
+                      variant="outline"
+                      onClick={() => window.open(tournament.rules_pdf_url!, "_blank")}
+                      className="w-full"
+                    >
+                      PDF herunterladen
+                    </Button>
+                  )}
+                </CardContent>
+              </Card>
             )}
-          </CardContent>
-        </Card>
+
+            {(tournament.terms_and_conditions || tournament.terms_pdf_url) && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <FileText className="w-5 h-5" />
+                    Teilnahmebedingungen
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {tournament.terms_and_conditions && (
+                    <p className="text-sm text-muted-foreground whitespace-pre-wrap mb-3">
+                      {tournament.terms_and_conditions}
+                    </p>
+                  )}
+                  {tournament.terms_pdf_url && (
+                    <Button
+                      variant="outline"
+                      onClick={() => window.open(tournament.terms_pdf_url!, "_blank")}
+                      className="w-full"
+                    >
+                      PDF herunterladen
+                    </Button>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        </div>
+
+        {/* Spielpläne / Resultate Section */}
+        <div ref={scheduleRef} className="mb-8">
+          <h2 className="text-3xl font-bold mb-6">Spielpläne / Resultate</h2>
+          <Card>
+            <CardContent className="pt-6">
+              <Tabs defaultValue={categories[0]?.id || ""} className="w-full">
+                <TabsList className="grid w-full" style={{ gridTemplateColumns: `repeat(${categories.length}, minmax(0, 1fr))` }}>
+                  {categories.map((category) => (
+                    <TabsTrigger
+                      key={category.id}
+                      value={category.id}
+                      data-category-id={category.id}
+                    >
+                      {category.name}
+                    </TabsTrigger>
+                  ))}
+                </TabsList>
+                {categories.map((category) => (
+                  <TabsContent key={category.id} value={category.id} className="mt-6">
+                    <div className="text-center py-12 text-muted-foreground">
+                      <p className="text-lg mb-2">Spielpläne werden bald verfügbar sein</p>
+                      <p className="text-sm">Der Spielplan für {category.name} wird nach Anmeldeschluss veröffentlicht</p>
+                    </div>
+                  </TabsContent>
+                ))}
+              </Tabs>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Sponsors Section */}
+        <div ref={sponsorsRef} className="mb-8">
+          <h2 className="text-3xl font-bold mb-6">Sponsoren</h2>
+          <Card>
+            <CardContent className="pt-6">
+              {sponsors.length > 0 ? (
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+                  {sponsors.map((sponsor) => (
+                    <div
+                      key={sponsor.id}
+                      className="flex items-center justify-center p-4 border border-border rounded-lg hover:shadow-md transition-shadow cursor-pointer"
+                      onClick={() => sponsor.website_url && window.open(sponsor.website_url, "_blank")}
+                    >
+                      {sponsor.logo_url ? (
+                        <img
+                          src={sponsor.logo_url}
+                          alt={sponsor.name}
+                          className="max-h-16 w-auto"
+                        />
+                      ) : (
+                        <span className="text-sm font-semibold">{sponsor.name}</span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8">
+                  <p className="text-lg text-muted-foreground mb-4">
+                    Noch keine Sponsoren
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    Turniersponsor werden?
+                  </p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
 
         {/* Registration CTA */}
         {isRegistrationOpen() ? (

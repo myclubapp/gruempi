@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Sun, Moon, User, LogOut } from "lucide-react";
+import { Sun, Moon, User, LogOut, ChevronDown } from "lucide-react";
 import { useTheme } from "next-themes";
 import {
   DropdownMenu,
@@ -13,7 +13,12 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
-const SimplifiedNavigation = () => {
+interface SimplifiedNavigationProps {
+  categories?: Array<{ id: string; name: string }>;
+  onNavigate?: (section: string) => void;
+}
+
+const SimplifiedNavigation = ({ categories = [], onNavigate }: SimplifiedNavigationProps) => {
   const { theme, setTheme } = useTheme();
   const navigate = useNavigate();
   const [user, setUser] = useState<any>(null);
@@ -41,6 +46,12 @@ const SimplifiedNavigation = () => {
     navigate("/");
   };
 
+  const handleSectionClick = (section: string) => {
+    if (onNavigate) {
+      onNavigate(section);
+    }
+  };
+
   if (!mounted) return null;
 
   return (
@@ -52,6 +63,51 @@ const SimplifiedNavigation = () => {
             Grümpi
           </span>
         </Link>
+
+        {/* Center Navigation */}
+        <div className="hidden md:flex items-center space-x-6">
+          <button
+            onClick={() => handleSectionClick("home")}
+            className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+          >
+            Home
+          </button>
+          <button
+            onClick={() => handleSectionClick("info")}
+            className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+          >
+            Turnierinformationen
+          </button>
+          
+          {/* Spielpläne / Resultate Dropdown */}
+          {categories.length > 0 && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button className="text-sm font-medium text-primary hover:text-primary/80 transition-colors flex items-center gap-1">
+                  Spielpläne / Resultate
+                  <ChevronDown className="h-3 w-3" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="center" className="w-56">
+                {categories.map((category) => (
+                  <DropdownMenuItem
+                    key={category.id}
+                    onClick={() => handleSectionClick(`schedule-${category.id}`)}
+                  >
+                    {category.name}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
+
+          <button
+            onClick={() => handleSectionClick("sponsors")}
+            className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+          >
+            Sponsoren
+          </button>
+        </div>
 
         {/* Right Side Actions */}
         <div className="flex items-center space-x-2">
