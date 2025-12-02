@@ -159,21 +159,6 @@ serve(async (req) => {
 
     console.log("Creating PDF with SwissQRBill...");
 
-    // Fetch logo first if available
-    const logoUrl = team.tournament.logo_url || 'https://gruempi.my-club.app/lovable-uploads/d9a44f4c-e31a-4dea-bcb8-0ab0cca64b27.png';
-    let logoBuffer: Uint8Array | undefined = undefined;
-
-    if (logoUrl) {
-      try {
-        const response = await fetch(logoUrl);
-        if (response.ok) {
-          logoBuffer = new Uint8Array(await response.arrayBuffer());
-        }
-      } catch (err) {
-        console.warn("Could not fetch logo:", err);
-      }
-    }
-
     // Generate PDF using PDFKit and SwissQRBill
     const pdfBuffer: Uint8Array = await new Promise((resolve, reject) => {
       const pdf = new PDFDocument({ size: 'A4' });
@@ -182,15 +167,6 @@ serve(async (req) => {
 
       // Attach QR bill to PDF (this adds it at the bottom)
       qrBill.attachTo(pdf);
-
-      // Add logo if available
-      if (logoBuffer) {
-        try {
-          pdf.image(logoBuffer, mm2pt(20), mm2pt(5), { width: mm2pt(30) });
-        } catch (err) {
-          console.warn("Could not add logo:", err);
-        }
-      }
 
       // Add creditor address (top left)
       pdf.fontSize(12);
