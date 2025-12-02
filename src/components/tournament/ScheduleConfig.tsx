@@ -148,7 +148,7 @@ export default function ScheduleConfig({ tournamentId }: ScheduleConfigProps) {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="break_duration">Pause zwischen Spielen (Minuten)</Label>
+              <Label htmlFor="break_duration">Pause Gruppenspiele (Minuten)</Label>
               <Input
                 id="break_duration"
                 type="number"
@@ -172,6 +172,34 @@ export default function ScheduleConfig({ tournamentId }: ScheduleConfigProps) {
               />
             </div>
           </div>
+          {config.ko_phase_teams > 0 && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4 border-t">
+              <div className="space-y-2">
+                <Label htmlFor="ko_break_before">Pause vor KO-Phase (Minuten)</Label>
+                <Input
+                  id="ko_break_before"
+                  type="number"
+                  min="0"
+                  value={config.ko_break_before_minutes}
+                  onChange={(e) =>
+                    setConfig({ ...config, ko_break_before_minutes: parseInt(e.target.value) || 0 })
+                  }
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="ko_break_between">Pause zwischen KO-Spielen (Minuten)</Label>
+                <Input
+                  id="ko_break_between"
+                  type="number"
+                  min="0"
+                  value={config.ko_break_between_minutes}
+                  onChange={(e) =>
+                    setConfig({ ...config, ko_break_between_minutes: parseInt(e.target.value) || 0 })
+                  }
+                />
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -238,44 +266,17 @@ export default function ScheduleConfig({ tournamentId }: ScheduleConfigProps) {
               </Select>
             </div>
             {config.ko_phase_teams > 0 && (
-              <>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="ko_break_before">Pause vor KO-Phase (Minuten)</Label>
-                    <Input
-                      id="ko_break_before"
-                      type="number"
-                      min="0"
-                      value={config.ko_break_before_minutes}
-                      onChange={(e) =>
-                        setConfig({ ...config, ko_break_before_minutes: parseInt(e.target.value) || 0 })
-                      }
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="ko_break_between">Pause zwischen KO-Spielen (Minuten)</Label>
-                    <Input
-                      id="ko_break_between"
-                      type="number"
-                      min="0"
-                      value={config.ko_break_between_minutes}
-                      onChange={(e) =>
-                        setConfig({ ...config, ko_break_between_minutes: parseInt(e.target.value) || 0 })
-                      }
-                    />
-                  </div>
-                </div>
-                <div className="p-4 bg-muted rounded-lg text-sm space-y-2 mt-4">
-                  <p className="font-medium">Hinweis zur KO-Phase:</p>
-                  <ul className="list-disc list-inside space-y-1 text-muted-foreground">
-                    <li>Die besten Teams aus allen Gruppen kommen weiter</li>
-                    <li>Bei 6 Teams (Viertelfinale): 2 beste Teams erhalten Freilos, 4 Teams spielen Viertelfinale</li>
-                    <li>Bei 12 Teams (Achtelfinale): 4 beste Teams erhalten Freilos, 8 Teams spielen Achtelfinale</li>
-                    <li>Sortierung: Punkte → Tordifferenz → Erzielte Tore (gemäss Ranglisten-Modus)</li>
-                    <li>KO-Spiele werden mit Platzhaltern generiert und nach Abschluss der Gruppenphase aktualisiert</li>
-                  </ul>
-                </div>
-              </>
+              <div className="p-4 bg-muted rounded-lg text-sm space-y-2">
+                <p className="font-medium">Hinweis zur KO-Phase:</p>
+                <ul className="list-disc list-inside space-y-1 text-muted-foreground">
+                  <li>Die besten Teams aus allen Gruppen kommen weiter</li>
+                  <li>Bei 6 Teams (Viertelfinale): 2 beste Teams erhalten Freilos, 4 Teams spielen Viertelfinale</li>
+                  <li>Bei 12 Teams (Achtelfinale): 4 beste Teams erhalten Freilos, 8 Teams spielen Achtelfinale</li>
+                  <li>Sortierung: Punkte → Tordifferenz → Erzielte Tore (gemäss Ranglisten-Modus)</li>
+                  <li>KO-Spiele werden mit Platzhaltern generiert und nach Abschluss der Gruppenphase aktualisiert</li>
+                  <li>Pausen für KO-Spiele können oben unter "Zeitplanung" konfiguriert werden</li>
+                </ul>
+              </div>
             )}
           </div>
         </CardContent>
