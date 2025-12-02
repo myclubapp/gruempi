@@ -56,15 +56,13 @@ const TeamPaymentManagement = ({ tournamentId, teams, onUpdate }: TeamPaymentMan
 
   const handleMarkAsPaid = async (teamId: string, method: string) => {
     setLoadingTeamId(teamId);
-    
-    const paymentMethod = method === "other" ? "Anderes" : method;
 
     try {
       const { error } = await supabase
         .from("teams")
         .update({ 
           payment_status: "paid",
-          payment_method: paymentMethod 
+          payment_method: method 
         })
         .eq("id", teamId);
 
