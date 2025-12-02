@@ -3,7 +3,7 @@ import { ArrowRight, Sparkles } from "lucide-react";
 
 const CallToAction = () => {
   return (
-    <section className="py-20 px-4 bg-gradient-hero relative overflow-hidden">
+    <section id="cta" className="py-20 px-4 bg-gradient-hero relative overflow-hidden">
       <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZmZmZmYiIGZpbGwtb3BhY2l0eT0iMC4wNSI+PHBhdGggZD0iTTM2IDE2YzAtMC41NTItLjQ0OC0xLTEtMXMtMSAuNDQ4LTEgMSAuNDQ4IDEgMSAxIDEtLjQ0OCAxLTF6bTAgMjBjMC0uNTUyLS40NDgtMS0xLTFzLTEgLjQ0OC0xIDEgLjQ0OCAxIDEgMSAxLS40NDggMS0xeiIvPjwvZz48L2c+PC9zdmc+')] opacity-30"></div>
       
       <div className="container mx-auto relative z-10">

@@ -401,59 +401,8 @@ const TournamentDetail = () => {
           </TabsList>
 
           <TabsContent value="overview">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">
-                    Angemeldete Teams
-                  </CardTitle>
-                  <Users className="h-4 w-4 text-muted-foreground" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">{teams.length}</div>
-                  <p className="text-xs text-muted-foreground">
-                    {teams.filter(t => t.payment_status === 'paid').length} bezahlt
-                  </p>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">
-                    Einnahmen
-                  </CardTitle>
-                  <Award className="h-4 w-4 text-muted-foreground" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">CHF 0.00</div>
-                  <p className="text-xs text-muted-foreground">
-                    Keine Zahlungen
-                  </p>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">
-                    Domain Status
-                  </CardTitle>
-                  <Globe className="h-4 w-4 text-muted-foreground" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold capitalize">
-                    {tournament.domain_status === "not_configured"
-                      ? "Nicht konfiguriert"
-                      : tournament.domain_status}
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    {tournament.custom_domain || "Keine Domain verknüpft"}
-                  </p>
-                </CardContent>
-              </Card>
-            </div>
-
             {tournament.status === "draft" && (
-              <Card className="mt-6">
+              <Card>
                 <CardHeader>
                   <CardTitle>Nächste Schritte</CardTitle>
                   <CardDescription>
@@ -466,26 +415,15 @@ const TournamentDetail = () => {
                       1
                     </div>
                     <div>
-                      <h4 className="font-semibold">Domain verknüpfen (optional)</h4>
+                      <h4 className="font-semibold">Kategorien & Regeln konfigurieren</h4>
                       <p className="text-sm text-muted-foreground">
-                        Verbinden Sie eine eigene Domain für Ihr Turnier
+                        Legen Sie die Kategorien und Turnierregeln fest
                       </p>
                     </div>
                   </div>
                   <div className="flex items-start gap-3">
                     <div className="w-6 h-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-sm font-bold">
                       2
-                    </div>
-                    <div>
-                      <h4 className="font-semibold">Sponsoren hinzufügen</h4>
-                      <p className="text-sm text-muted-foreground">
-                        Fügen Sie Ihre Turnier-Sponsoren hinzu
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex items-start gap-3">
-                    <div className="w-6 h-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-sm font-bold">
-                      3
                     </div>
                     <div>
                       <h4 className="font-semibold">Turnier veröffentlichen</h4>

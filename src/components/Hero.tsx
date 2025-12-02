@@ -6,10 +6,10 @@ const Hero = () => {
     <section className="relative bg-gradient-hero pt-32 pb-20 md:pt-40 md:pb-32 overflow-hidden">
       {/* Background Decoration Elements */}
       <div className="absolute top-0 left-0 w-full h-full overflow-hidden z-0">
-        <div className="absolute top-10 right-10 w-64 h-64 bg-primary/20 rounded-full blur-xl animate-float"></div>
-        <div className="absolute bottom-10 left-20 w-80 h-80 bg-orange-500/10 rounded-full blur-xl"></div>
+        <div className="absolute top-10 right-10 w-64 h-64 bg-white/10 rounded-full blur-3xl animate-float"></div>
+        <div className="absolute bottom-10 left-20 w-80 h-80 bg-white/5 rounded-full blur-3xl"></div>
         <div 
-          className="absolute top-1/2 left-1/3 w-40 h-40 bg-primary/15 rounded-full blur-lg animate-float" 
+          className="absolute top-1/2 left-1/3 w-40 h-40 bg-white/10 rounded-full blur-2xl animate-float" 
           style={{ animationDelay: '1s' }}
         ></div>
       </div>
@@ -19,18 +19,18 @@ const Hero = () => {
           {/* Left Content */}
           <div className="text-center lg:text-left">
             <div className="mb-6 flex justify-center lg:justify-start">
-              <div className="inline-flex items-center gap-2 bg-primary-foreground/10 backdrop-blur-sm px-4 py-2 rounded-full">
-                <Trophy className="w-5 h-5 text-primary-foreground" />
-                <span className="text-primary-foreground font-medium">Turnierorganisation leicht gemacht</span>
+              <div className="inline-flex items-center gap-2 bg-white/10 backdrop-blur-sm px-4 py-2 rounded-full border border-white/20">
+                <Trophy className="w-5 h-5 text-white" />
+                <span className="text-white font-medium">Turnierorganisation leicht gemacht</span>
               </div>
             </div>
             
-            <h1 className="text-4xl md:text-5xl lg:text-6xl font-extrabold text-primary-foreground mb-6 leading-tight">
-              <span className="text-primary bg-clip-text">Grümpelturniere</span> organisieren,{" "}
-              <span className="text-primary bg-clip-text">die begeistern</span>
+            <h1 className="text-4xl md:text-5xl lg:text-6xl font-extrabold text-white mb-6 leading-tight drop-shadow-lg">
+              Grümpelturniere organisieren,{" "}
+              <span className="text-orange-300">die begeistern</span>
             </h1>
             
-            <p className="text-lg md:text-xl text-primary-foreground/80 mb-10 max-w-2xl mx-auto lg:mx-0">
+            <p className="text-lg md:text-xl text-white/90 mb-10 max-w-2xl mx-auto lg:mx-0 drop-shadow">
               Die moderne Plattform für Sportvereine in der Schweiz.
               <br />
               Von der Anmeldung bis zur Siegerehrung – alles an einem Ort.
@@ -40,7 +40,7 @@ const Hero = () => {
               <Button 
                 variant="accent" 
                 size="lg" 
-                className="text-lg px-8 py-6 rounded-full"
+                className="text-lg px-8 py-6 rounded-full shadow-lg"
                 onClick={() => window.location.href = "/auth"}
               >
                 <Calendar className="w-5 h-5 mr-2" />
@@ -50,7 +50,7 @@ const Hero = () => {
               <Button 
                 variant="outline" 
                 size="lg" 
-                className="text-lg px-8 py-6 rounded-full bg-primary-foreground/10 backdrop-blur-sm border-primary-foreground/30 text-primary-foreground hover:bg-primary-foreground/20"
+                className="text-lg px-8 py-6 rounded-full bg-white/10 backdrop-blur-sm border-white/30 text-white hover:bg-white/20 hover:text-white"
                 onClick={() => window.location.href = "/tournaments"}
               >
                 <Users className="w-5 h-5 mr-2" />
@@ -86,8 +86,8 @@ const Hero = () => {
 
               {/* Central Trophy */}
               <div className="w-64 h-64 mx-auto flex items-center justify-center">
-                <div className="w-32 h-32 bg-primary/20 rounded-full flex items-center justify-center backdrop-blur-sm">
-                  <Trophy className="w-16 h-16 text-primary" />
+                <div className="w-32 h-32 bg-white/20 rounded-full flex items-center justify-center backdrop-blur-sm border border-white/30">
+                  <Trophy className="w-16 h-16 text-white" />
                 </div>
               </div>
             </div>
@@ -102,10 +102,10 @@ const Hero = () => {
             { number: "100+", label: "Vereine" },
           ].map((stat, index) => (
             <div key={index} className="text-center">
-              <div className="text-2xl md:text-3xl font-black text-primary-foreground mb-1">
+              <div className="text-2xl md:text-3xl font-black text-white mb-1 drop-shadow">
                 {stat.number}
               </div>
-              <div className="text-primary-foreground/70 text-sm font-medium">
+              <div className="text-white/80 text-sm font-medium">
                 {stat.label}
               </div>
             </div>

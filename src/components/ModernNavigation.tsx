@@ -55,30 +55,30 @@ const ModernNavigation = () => {
 
         {/* Center Navigation */}
         <div className="hidden md:flex items-center space-x-8">
-          <Link
-            to="/tournaments"
+          <a
+            href="#tournaments"
             className="text-sm font-medium text-foreground/80 hover:text-foreground transition-colors"
           >
             Turniere
-          </Link>
-          <Link
-            to="/#features"
+          </a>
+          <a
+            href="#features"
             className="text-sm font-medium text-foreground/80 hover:text-foreground transition-colors"
           >
             Funktionen
-          </Link>
-          <Link
-            to="/#pricing"
+          </a>
+          <a
+            href="#cta"
             className="text-sm font-medium text-foreground/80 hover:text-foreground transition-colors"
           >
             Preise
-          </Link>
-          <Link
-            to="/#about"
+          </a>
+          <a
+            href="#footer"
             className="text-sm font-medium text-foreground/80 hover:text-foreground transition-colors"
           >
             Über uns
-          </Link>
+          </a>
         </div>
 
         {/* Right Side Actions */}
