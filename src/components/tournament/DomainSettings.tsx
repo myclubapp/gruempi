@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { Globe, CheckCircle, AlertCircle, Clock, Copy } from "lucide-react";
+import { Globe, CheckCircle, AlertCircle, Clock, Copy, ExternalLink } from "lucide-react";
 
 interface DomainSettingsProps {
   tournament: {
@@ -203,7 +203,7 @@ const DomainSettings = ({ tournament, onUpdate }: DomainSettingsProps) => {
                       </div>
                       <div className="text-sm font-mono bg-background p-2 rounded">
                         <div>Type: A</div>
-                        <div>Name: @ (oder Ihre Subdomain)</div>
+                        <div>Name: {tournament.custom_domain}</div>
                         <div>Value: 185.158.133.1</div>
                       </div>
                     </div>
@@ -221,7 +221,7 @@ const DomainSettings = ({ tournament, onUpdate }: DomainSettingsProps) => {
                       </div>
                       <div className="text-sm font-mono bg-background p-2 rounded break-all">
                         <div>Type: TXT</div>
-                        <div>Name: _gruempi</div>
+                        <div>Name: _gruempi.{tournament.custom_domain}</div>
                         <div>Value: {tournament.domain_verification_token}</div>
                       </div>
                     </div>
@@ -238,11 +238,12 @@ const DomainSettings = ({ tournament, onUpdate }: DomainSettingsProps) => {
                   <div className="pt-2">
                     <Button variant="outline" asChild className="w-full">
                       <a
-                        href="https://docs.lovable.dev/features/custom-domain"
+                        href={`https://dnschecker.org/#A/${tournament.custom_domain}`}
                         target="_blank"
                         rel="noopener noreferrer"
                       >
-                        📖 Detaillierte Anleitung
+                        <ExternalLink className="w-4 h-4 mr-2" />
+                        DNS-Eintrag prüfen
                       </a>
                     </Button>
                   </div>
