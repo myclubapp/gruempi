@@ -195,6 +195,29 @@ const TeamRegistrationForm = ({ tournament, categories, onBack }: TeamRegistrati
         if (paymentData?.url) {
           window.open(paymentData.url, "_blank");
         }
+      } else if (formData.payment_method === "qr_invoice") {
+        // Generate and download QR invoice
+        const response = await fetch(
+          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-qr-invoice`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "Authorization": `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+            },
+            body: JSON.stringify({ team_id: team.id }),
+          }
+        );
+
+        if (!response.ok) {
+          throw new Error("Fehler beim Generieren der QR-Rechnung");
+        }
+
+        // Get HTML and open in new window
+        const html = await response.text();
+        const blob = new Blob([html], { type: "text/html" });
+        const url = URL.createObjectURL(blob);
+        window.open(url, "_blank");
       }
 
       toast.success("Team erfolgreich angemeldet!");
@@ -500,6 +523,18 @@ const TeamRegistrationForm = ({ tournament, categories, onBack }: TeamRegistrati
                       <div className="font-semibold">Online bezahlen (Stripe)</div>
                       <div className="text-sm text-muted-foreground">
                         Sofortige Bestätigung nach Zahlung
+                      </div>
+                    </div>
+                  </Label>
+                </div>
+
+                <div className="flex items-center space-x-2 p-3 border border-border rounded-lg">
+                  <RadioGroupItem value="qr_invoice" id="qr_invoice" />
+                  <Label htmlFor="qr_invoice" className="flex-1 cursor-pointer">
+                    <div>
+                      <div className="font-semibold">Swiss QR Rechnung</div>
+                      <div className="text-sm text-muted-foreground">
+                        QR-Rechnung herunterladen - Bestätigung nach Zahlungseingang
                       </div>
                     </div>
                   </Label>

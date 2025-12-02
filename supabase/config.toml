@@ -1,1 +1,7 @@
 project_id = "whxquahduaoocoptlmfy"
+
+[functions.create-team-payment]
+verify_jwt = false
+
+[functions.generate-qr-invoice]
+verify_jwt = false
