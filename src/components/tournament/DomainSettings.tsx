@@ -38,8 +38,8 @@ const DomainSettings = ({ tournament, onUpdate }: DomainSettingsProps) => {
       return;
     }
 
-    // Validate domain format
-    const domainRegex = /^[a-zA-Z0-9][a-zA-Z0-9-]{0,61}[a-zA-Z0-9]?\.[a-zA-Z]{2,}$/;
+    // Validate domain format (supports subdomains like "gruempi.kadetten-unihockey.ch")
+    const domainRegex = /^([a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}$/;
     if (!domainRegex.test(domain)) {
       toast.error("Ungültiges Domain-Format");
       return;
