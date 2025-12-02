@@ -3,7 +3,7 @@ import { Facebook, Twitter, Instagram, Linkedin, Github } from "lucide-react";
 
 const ModernFooter = () => {
   return (
-    <footer className="bg-background text-foreground pt-16 pb-8">
+    <footer id="footer" className="bg-background text-foreground pt-16 pb-8">
       <div className="container mx-auto px-4">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 mb-12">
           {/* Brand Section */}
@@ -81,19 +81,19 @@ const ModernFooter = () => {
             <h3 className="text-lg font-semibold mb-4">Produkt</h3>
             <ul className="space-y-3">
               <li>
-                <Link to="/#features" className="text-muted-foreground hover:text-primary transition-colors">
+                <a href="#features" className="text-muted-foreground hover:text-primary transition-colors">
                   Funktionen
-                </Link>
+                </a>
               </li>
               <li>
-                <Link to="/#pricing" className="text-muted-foreground hover:text-primary transition-colors">
+                <a href="#cta" className="text-muted-foreground hover:text-primary transition-colors">
                   Preise
-                </Link>
+                </a>
               </li>
               <li>
-                <Link to="/#about" className="text-muted-foreground hover:text-primary transition-colors">
+                <a href="#footer" className="text-muted-foreground hover:text-primary transition-colors">
                   Über uns
-                </Link>
+                </a>
               </li>
               <li>
                 <Link to="/tournaments" className="text-muted-foreground hover:text-primary transition-colors">
