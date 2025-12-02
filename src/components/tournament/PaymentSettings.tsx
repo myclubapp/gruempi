@@ -20,6 +20,7 @@ interface PaymentSettingsProps {
   };
   organizerProfile: {
     full_name: string;
+    creditor_name: string | null;
     creditor_account: string | null;
     creditor_address: string | null;
     creditor_building_number: string | null;
@@ -49,7 +50,7 @@ const PaymentSettings = ({ tournament, organizerProfile, onUpdate }: PaymentSett
     if (checked && !tournament.creditor_account && organizerProfile) {
       setFormData({
         creditor_account: organizerProfile.creditor_account || "",
-        creditor_name: organizerProfile.full_name || "",
+        creditor_name: organizerProfile.creditor_name || "",
         creditor_address: organizerProfile.creditor_address || "",
         creditor_building_number: organizerProfile.creditor_building_number || "",
         creditor_zip: organizerProfile.creditor_zip || "",
