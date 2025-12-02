@@ -14,6 +14,8 @@ interface Tournament {
   id: string;
   name: string;
   date: string;
+  start_time: string | null;
+  end_time: string | null;
   location: string;
   status: string;
   entry_fee: number;
@@ -42,7 +44,8 @@ const TournamentDetail = () => {
       .single();
 
     if (error) {
-      toast.error("Fehler beim Laden des Turniers");
+      console.error("Error loading tournament:", error);
+      toast.error("Fehler beim Laden des Turniers: " + error.message);
       navigate("/dashboard");
     } else {
       setTournament(data);
@@ -134,7 +137,12 @@ const TournamentDetail = () => {
             {tournament.name}
           </h1>
           <div className="flex flex-wrap gap-4 text-muted-foreground">
-            <span>📅 {new Date(tournament.date).toLocaleDateString("de-CH")}</span>
+            <span>
+              📅 {new Date(tournament.date).toLocaleDateString("de-CH")}
+              {tournament.start_time && tournament.end_time && 
+                ` • ${tournament.start_time.slice(0, 5)} - ${tournament.end_time.slice(0, 5)} Uhr`
+              }
+            </span>
             <span>📍 {tournament.location}</span>
             <span>💰 CHF {tournament.entry_fee.toFixed(2)}</span>
             {tournament.custom_domain && (

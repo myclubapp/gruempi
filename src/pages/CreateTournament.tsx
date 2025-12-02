@@ -15,6 +15,8 @@ interface Category {
   max_licensed_players: number;
   min_players: number;
   max_players: number;
+  min_teams: number;
+  max_teams: number | null;
 }
 
 const CreateTournament = () => {
@@ -23,6 +25,8 @@ const CreateTournament = () => {
   const [formData, setFormData] = useState({
     name: "",
     date: "",
+    start_time: "",
+    end_time: "",
     location: "",
     entry_fee: "",
     description: "",
@@ -40,6 +44,8 @@ const CreateTournament = () => {
       max_licensed_players: 3,
       min_players: 4,
       max_players: 10,
+      min_teams: 2,
+      max_teams: null,
     },
   ]);
 
@@ -96,6 +102,8 @@ const CreateTournament = () => {
           organizer_id: user.id,
           name: formData.name,
           date: formData.date,
+          start_time: formData.start_time || null,
+          end_time: formData.end_time || null,
           location: formData.location,
           entry_fee: parseFloat(formData.entry_fee),
           description: formData.description,
@@ -118,6 +126,8 @@ const CreateTournament = () => {
         max_licensed_players: cat.max_licensed_players,
         min_players: cat.min_players,
         max_players: cat.max_players,
+        min_teams: cat.min_teams,
+        max_teams: cat.max_teams,
       }));
 
       const { error: categoriesError } = await supabase
@@ -145,6 +155,8 @@ const CreateTournament = () => {
         max_licensed_players: 0,
         min_players: 4,
         max_players: 10,
+        min_teams: 2,
+        max_teams: null,
       },
     ]);
   };
@@ -153,7 +165,7 @@ const CreateTournament = () => {
     setCategories(categories.filter((_, i) => i !== index));
   };
 
-  const updateCategory = (index: number, field: keyof Category, value: string | number) => {
+  const updateCategory = (index: number, field: keyof Category, value: string | number | null) => {
     const updated = [...categories];
     updated[index] = { ...updated[index], [field]: value };
     setCategories(updated);
@@ -228,6 +240,30 @@ const CreateTournament = () => {
                     onChange={(e) => setFormData({ ...formData, entry_fee: e.target.value })}
                     placeholder="30.00"
                     required
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="start_time">Startzeit</Label>
+                  <Input
+                    id="start_time"
+                    type="time"
+                    value={formData.start_time}
+                    onChange={(e) => setFormData({ ...formData, start_time: e.target.value })}
+                    placeholder="13:00"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="end_time">Endzeit (ca.)</Label>
+                  <Input
+                    id="end_time"
+                    type="time"
+                    value={formData.end_time}
+                    onChange={(e) => setFormData({ ...formData, end_time: e.target.value })}
+                    placeholder="22:00"
                   />
                 </div>
               </div>
@@ -329,6 +365,38 @@ const CreateTournament = () => {
                         }
                         required
                       />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label>Min. Teams für Durchführung *</Label>
+                      <Input
+                        type="number"
+                        min="2"
+                        value={category.min_teams}
+                        onChange={(e) =>
+                          updateCategory(index, "min_teams", parseInt(e.target.value))
+                        }
+                        required
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Mindestanzahl Teams für diese Kategorie
+                      </p>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label>Max. Teams (optional)</Label>
+                      <Input
+                        type="number"
+                        min="1"
+                        value={category.max_teams || ""}
+                        onChange={(e) =>
+                          updateCategory(index, "max_teams", e.target.value ? parseInt(e.target.value) : null)
+                        }
+                        placeholder="Unbegrenzt"
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Leer lassen für unbegrenzt
+                      </p>
                     </div>
                   </div>
 
