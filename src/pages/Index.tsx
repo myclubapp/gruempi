@@ -16,7 +16,7 @@ const Index = () => {
         <div className="container mx-auto">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-8">
             <div>
-              <h3 className="font-bold text-foreground mb-4">TourneyHub</h3>
+              <h3 className="font-bold text-foreground mb-4">Grümpi</h3>
               <p className="text-muted-foreground text-sm">
                 Die moderne Plattform für Turnierorganisation in der Schweiz.
               </p>
@@ -47,7 +47,7 @@ const Index = () => {
             </div>
           </div>
           <div className="border-t border-border pt-8 text-center text-sm text-muted-foreground">
-            <p>© 2024 TourneyHub. Alle Rechte vorbehalten.</p>
+            <p>© 2024 Grümpi. Alle Rechte vorbehalten.</p>
           </div>
         </div>
       </footer>
