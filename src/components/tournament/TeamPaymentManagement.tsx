@@ -3,7 +3,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { Check, X, FileText, ChevronDown, ChevronUp, Banknote, QrCode, Smartphone, MoreHorizontal } from "lucide-react";
 import {
@@ -49,7 +48,6 @@ const PAYMENT_METHODS = [
 const TeamPaymentManagement = ({ tournamentId, teams, onUpdate }: TeamPaymentManagementProps) => {
   const [loadingTeamId, setLoadingTeamId] = useState<string | null>(null);
   const [generatingQrId, setGeneratingQrId] = useState<string | null>(null);
-  const [customPaymentMethod, setCustomPaymentMethod] = useState<Record<string, string>>({});
   const [unpaidOpen, setUnpaidOpen] = useState(true);
   const [paidOpen, setPaidOpen] = useState(true);
 
@@ -59,9 +57,7 @@ const TeamPaymentManagement = ({ tournamentId, teams, onUpdate }: TeamPaymentMan
   const handleMarkAsPaid = async (teamId: string, method: string) => {
     setLoadingTeamId(teamId);
     
-    const paymentMethod = method === "other" 
-      ? customPaymentMethod[teamId] || "Anderes"
-      : method;
+    const paymentMethod = method === "other" ? "Anderes" : method;
 
     try {
       const { error } = await supabase
@@ -175,11 +171,7 @@ const TeamPaymentManagement = ({ tournamentId, teams, onUpdate }: TeamPaymentMan
           {!isPaid ? (
             <>
               <Select
-                onValueChange={(value) => {
-                  if (value !== "other") {
-                    handleMarkAsPaid(team.id, value);
-                  }
-                }}
+                onValueChange={(value) => handleMarkAsPaid(team.id, value)}
                 disabled={isLoading}
               >
                 <SelectTrigger className="w-[160px]">
@@ -196,27 +188,6 @@ const TeamPaymentManagement = ({ tournamentId, teams, onUpdate }: TeamPaymentMan
                   ))}
                 </SelectContent>
               </Select>
-
-              {/* Custom payment input */}
-              <div className="flex items-center gap-1">
-                <Input
-                  placeholder="Anderes..."
-                  value={customPaymentMethod[team.id] || ""}
-                  onChange={(e) => setCustomPaymentMethod({
-                    ...customPaymentMethod,
-                    [team.id]: e.target.value
-                  })}
-                  className="w-[120px]"
-                />
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => handleMarkAsPaid(team.id, "other")}
-                  disabled={isLoading || !customPaymentMethod[team.id]}
-                >
-                  <Check className="w-4 h-4" />
-                </Button>
-              </div>
 
               <Button
                 size="sm"
