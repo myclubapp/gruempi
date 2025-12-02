@@ -15,6 +15,7 @@ import DomainSettings from "@/components/tournament/DomainSettings";
 import PaymentSettings from "@/components/tournament/PaymentSettings";
 import SponsorManagement from "@/components/tournament/SponsorManagement";
 import TournamentSettings from "@/components/tournament/TournamentSettings";
+import TournamentCategoriesRules from "@/components/tournament/TournamentCategoriesRules";
 import ScheduleConfig from "@/components/tournament/ScheduleConfig";
 import GroupManagement from "@/components/tournament/GroupManagement";
 import MatchScheduleGenerator from "@/components/tournament/MatchScheduleGenerator";
@@ -453,6 +454,14 @@ const TournamentDetail = () => {
                 </CardContent>
               </Card>
             )}
+
+            {/* Categories and Rules */}
+            <div className="mt-6">
+              <TournamentCategoriesRules
+                tournament={tournament}
+                onUpdate={loadTournament}
+              />
+            </div>
           </TabsContent>
 
           <TabsContent value="teams">
@@ -535,27 +544,6 @@ const TournamentDetail = () => {
                                 <Edit2 className="w-4 h-4 mr-1" />
                                 Bearbeiten
                               </Button>
-                              {team.payment_status === 'pending' && (
-                                <Button
-                                  size="sm"
-                                  variant="default"
-                                  onClick={async () => {
-                                    const { error } = await supabase
-                                      .from('teams')
-                                      .update({ payment_status: 'paid' })
-                                      .eq('id', team.id);
-                                    
-                                    if (error) {
-                                      toast.error('Fehler beim Aktualisieren');
-                                    } else {
-                                      toast.success('Zahlung bestätigt');
-                                      loadTournament();
-                                    }
-                                  }}
-                                >
-                                  Zahlung bestätigen
-                                </Button>
-                              )}
                               <Button
                                 size="sm"
                                 variant="destructive"
