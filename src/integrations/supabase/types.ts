@@ -16,13 +16,15 @@ export type Database = {
     Tables: {
       matches: {
         Row: {
+          away_placeholder: string | null
           away_score: number | null
-          away_team_id: string
+          away_team_id: string | null
           created_at: string | null
           field_number: number | null
           group_id: string | null
+          home_placeholder: string | null
           home_score: number | null
-          home_team_id: string
+          home_team_id: string | null
           id: string
           match_number: number
           match_type: string
@@ -33,13 +35,15 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
+          away_placeholder?: string | null
           away_score?: number | null
-          away_team_id: string
+          away_team_id?: string | null
           created_at?: string | null
           field_number?: number | null
           group_id?: string | null
+          home_placeholder?: string | null
           home_score?: number | null
-          home_team_id: string
+          home_team_id?: string | null
           id?: string
           match_number: number
           match_type?: string
@@ -50,13 +54,15 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
+          away_placeholder?: string | null
           away_score?: number | null
-          away_team_id?: string
+          away_team_id?: string | null
           created_at?: string | null
           field_number?: number | null
           group_id?: string | null
+          home_placeholder?: string | null
           home_score?: number | null
-          home_team_id?: string
+          home_team_id?: string | null
           id?: string
           match_number?: number
           match_type?: string
@@ -432,6 +438,8 @@ export type Database = {
           break_duration_minutes: number
           created_at: string | null
           id: string
+          ko_break_before_minutes: number
+          ko_break_between_minutes: number
           ko_phase_teams: number | null
           match_duration_minutes: number
           number_of_fields: number
@@ -443,6 +451,8 @@ export type Database = {
           break_duration_minutes?: number
           created_at?: string | null
           id?: string
+          ko_break_before_minutes?: number
+          ko_break_between_minutes?: number
           ko_phase_teams?: number | null
           match_duration_minutes?: number
           number_of_fields?: number
@@ -454,6 +464,8 @@ export type Database = {
           break_duration_minutes?: number
           created_at?: string | null
           id?: string
+          ko_break_before_minutes?: number
+          ko_break_between_minutes?: number
           ko_phase_teams?: number | null
           match_duration_minutes?: number
           number_of_fields?: number

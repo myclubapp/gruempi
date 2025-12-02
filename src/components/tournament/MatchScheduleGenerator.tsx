@@ -33,19 +33,25 @@ interface ScheduleConfig {
   match_duration_minutes: number;
   break_duration_minutes: number;
   number_of_fields: number;
+  ko_phase_teams: number;
+  ko_break_before_minutes: number;
+  ko_break_between_minutes: number;
 }
 
 interface GeneratedMatch {
-  home_team_id: string;
-  away_team_id: string;
-  group_id: string;
+  home_team_id: string | null;
+  away_team_id: string | null;
+  group_id: string | null;
   scheduled_time: Date;
   field_number: number;
   match_number: number;
+  match_type: string;
   homeTeamName?: string;
   awayTeamName?: string;
   groupName?: string;
   categoryName?: string;
+  home_placeholder?: string;
+  away_placeholder?: string;
 }
 
 export default function MatchScheduleGenerator({ tournamentId }: MatchScheduleGeneratorProps) {
@@ -116,6 +122,139 @@ export default function MatchScheduleGenerator({ tournamentId }: MatchScheduleGe
     }
 
     return matches;
+  };
+
+  const generateKOMatches = (
+    koTeams: number,
+    groups: any[],
+    startTime: Date,
+    startField: number,
+    startMatchNumber: number,
+    config: ScheduleConfig
+  ): GeneratedMatch[] => {
+    const matches: GeneratedMatch[] = [];
+    let currentTime = new Date(startTime);
+    let currentField = startField;
+    let matchNumber = startMatchNumber;
+
+    // Calculate rounds needed
+    const rounds: { name: string; matchCount: number }[] = [];
+    let remaining = koTeams;
+    
+    while (remaining > 1) {
+      let roundName = "";
+      if (remaining === 2) roundName = "final";
+      else if (remaining <= 4) roundName = "semifinal";
+      else if (remaining <= 8) roundName = "quarterfinal";
+      else if (remaining <= 16) roundName = "round_of_16";
+      else roundName = "round_of_32";
+      
+      const matchesInRound = Math.floor(remaining / 2);
+      rounds.push({ name: roundName, matchCount: matchesInRound });
+      remaining = Math.ceil(remaining / 2);
+    }
+
+    // Reverse to start from first KO round
+    rounds.reverse();
+
+    // Generate placeholder names based on seeding
+    const numGroups = groups.length;
+    const teamsPerGroup = numGroups > 0 ? Math.ceil(koTeams / numGroups) : koTeams;
+
+    // First round placeholders
+    let currentRoundPlaceholders: string[] = [];
+    for (let i = 1; i <= koTeams; i++) {
+      const groupIndex = ((i - 1) % numGroups);
+      const positionInGroup = Math.floor((i - 1) / numGroups) + 1;
+      const groupName = groups[groupIndex]?.name || `Gruppe ${groupIndex + 1}`;
+      currentRoundPlaceholders.push(`${positionInGroup}. ${groupName}`);
+    }
+
+    // Handle byes if koTeams is not a power of 2
+    const nextPowerOf2 = Math.pow(2, Math.ceil(Math.log2(koTeams)));
+    const byes = nextPowerOf2 - koTeams;
+
+    // Generate matches for each round
+    for (let roundIdx = 0; roundIdx < rounds.length; roundIdx++) {
+      const round = rounds[roundIdx];
+      const nextRoundPlaceholders: string[] = [];
+
+      // For first round, handle byes
+      let matchesGenerated = 0;
+      const totalSlotsInRound = roundIdx === 0 ? nextPowerOf2 / 2 : currentRoundPlaceholders.length / 2;
+      
+      for (let i = 0; i < totalSlotsInRound; i++) {
+        const homeIdx = i * 2;
+        const awayIdx = i * 2 + 1;
+
+        // Check if this is a bye (only in first round)
+        if (roundIdx === 0 && i < byes) {
+          // Top seeds get byes - they advance directly
+          nextRoundPlaceholders.push(currentRoundPlaceholders[homeIdx] || `Sieger ${matchNumber}`);
+          continue;
+        }
+
+        const actualHomeIdx = roundIdx === 0 ? homeIdx - byes * 2 + byes : homeIdx;
+        const actualAwayIdx = roundIdx === 0 ? awayIdx - byes * 2 + byes : awayIdx;
+
+        const homePlaceholder = currentRoundPlaceholders[actualHomeIdx] || `TBD`;
+        const awayPlaceholder = currentRoundPlaceholders[actualAwayIdx] || `TBD`;
+
+        matches.push({
+          home_team_id: null,
+          away_team_id: null,
+          group_id: null,
+          scheduled_time: new Date(currentTime),
+          field_number: currentField,
+          match_number: matchNumber,
+          match_type: round.name,
+          homeTeamName: homePlaceholder,
+          awayTeamName: awayPlaceholder,
+          groupName: "",
+          categoryName: getKORoundName(round.name),
+          home_placeholder: homePlaceholder,
+          away_placeholder: awayPlaceholder
+        });
+
+        nextRoundPlaceholders.push(`Sieger Spiel ${matchNumber}`);
+        matchNumber++;
+        matchesGenerated++;
+
+        // Move to next field or next time slot
+        currentField++;
+        if (currentField > config.number_of_fields) {
+          currentField = 1;
+          currentTime = addMinutes(
+            currentTime,
+            config.match_duration_minutes + config.ko_break_between_minutes
+          );
+        }
+      }
+
+      // Add break between KO rounds
+      if (roundIdx < rounds.length - 1 && matchesGenerated > 0) {
+        if (currentField !== 1) {
+          currentField = 1;
+          currentTime = addMinutes(currentTime, config.match_duration_minutes);
+        }
+        currentTime = addMinutes(currentTime, config.ko_break_between_minutes);
+      }
+
+      currentRoundPlaceholders = nextRoundPlaceholders;
+    }
+
+    return matches;
+  };
+
+  const getKORoundName = (roundType: string): string => {
+    switch (roundType) {
+      case "final": return "Finale";
+      case "semifinal": return "Halbfinale";
+      case "quarterfinal": return "Viertelfinale";
+      case "round_of_16": return "Achtelfinale";
+      case "round_of_32": return "Sechzehntelfinale";
+      default: return "KO-Phase";
+    }
   };
 
   const handleGenerateSchedule = async () => {
@@ -248,6 +387,7 @@ export default function MatchScheduleGenerator({ tournamentId }: MatchScheduleGe
             scheduled_time: new Date(currentTime),
             field_number: currentField,
             match_number: matchNumber++,
+            match_type: "group",
             homeTeamName: teamsMap[match.homeId] || "Unbekannt",
             awayTeamName: teamsMap[match.awayId] || "Unbekannt",
             groupName: groupInfo?.name || "",
@@ -266,9 +406,26 @@ export default function MatchScheduleGenerator({ tournamentId }: MatchScheduleGe
         }
       }
 
-      // Validate: Check if any team plays twice at the same time
+      // Generate KO phase matches if configured
+      if (scheduleConfig.ko_phase_teams > 0) {
+        // Add break before KO phase
+        if (currentField !== 1) {
+          currentField = 1;
+          currentTime = addMinutes(currentTime, scheduleConfig.match_duration_minutes);
+        }
+        currentTime = addMinutes(currentTime, scheduleConfig.ko_break_before_minutes);
+
+        const koTeams = scheduleConfig.ko_phase_teams;
+        const koMatches = generateKOMatches(koTeams, groups || [], currentTime, currentField, matchNumber, scheduleConfig);
+        generatedMatches.push(...koMatches);
+      }
+
+      // Validate: Check if any team plays twice at the same time (only for group matches)
       const timeSlotTeams: Record<string, Set<string>> = {};
       for (const match of generatedMatches) {
+        // Skip KO matches with placeholders
+        if (!match.home_team_id || !match.away_team_id) continue;
+        
         const timeKey = match.scheduled_time.toISOString();
         if (!timeSlotTeams[timeKey]) {
           timeSlotTeams[timeKey] = new Set();
@@ -319,8 +476,10 @@ export default function MatchScheduleGenerator({ tournamentId }: MatchScheduleGe
         scheduled_time: m.scheduled_time.toISOString(),
         field_number: m.field_number,
         match_number: m.match_number,
-        match_type: "group",
+        match_type: m.match_type,
         status: "scheduled",
+        home_placeholder: m.home_placeholder || null,
+        away_placeholder: m.away_placeholder || null,
       }));
 
       const { error } = await supabase.from("matches").insert(matchesToInsert);
@@ -372,13 +531,21 @@ export default function MatchScheduleGenerator({ tournamentId }: MatchScheduleGe
             <div className="space-y-4">
               <Alert>
                 <AlertDescription>
-                  {previewMatches.length} Spiele wurden generiert. Überprüfe die Vorschau und speichere den Spielplan.
+                  <div className="space-y-1">
+                    <p>{previewMatches.length} Spiele wurden generiert:</p>
+                    <ul className="text-sm list-disc list-inside">
+                      <li>{previewMatches.filter(m => m.match_type === 'group').length} Gruppenspiele</li>
+                      {previewMatches.filter(m => m.match_type !== 'group').length > 0 && (
+                        <li>{previewMatches.filter(m => m.match_type !== 'group').length} KO-Spiele (mit Platzhaltern)</li>
+                      )}
+                    </ul>
+                  </div>
                 </AlertDescription>
               </Alert>
 
               <div className="max-h-96 overflow-y-auto space-y-2">
-                {previewMatches.slice(0, 20).map((match, i) => (
-                  <div key={i} className="p-4 border rounded-lg">
+                {previewMatches.slice(0, 30).map((match, i) => (
+                  <div key={i} className={`p-4 border rounded-lg ${match.match_type !== 'group' ? 'bg-accent/20 border-accent' : ''}`}>
                     <div className="flex items-center justify-between mb-2">
                       <div className="font-medium">
                         Spiel #{match.match_number} - Feld {match.field_number}
@@ -389,8 +556,12 @@ export default function MatchScheduleGenerator({ tournamentId }: MatchScheduleGe
                     </div>
                     <div className="text-sm space-y-1">
                       <div className="flex items-center gap-2">
-                        <Badge variant="outline">{match.categoryName}</Badge>
-                        <span className="text-muted-foreground">{match.groupName}</span>
+                        <Badge variant={match.match_type !== 'group' ? 'default' : 'outline'}>
+                          {match.categoryName}
+                        </Badge>
+                        {match.groupName && (
+                          <span className="text-muted-foreground">{match.groupName}</span>
+                        )}
                       </div>
                       <div className="font-semibold">
                         {match.homeTeamName} vs {match.awayTeamName}
@@ -398,9 +569,9 @@ export default function MatchScheduleGenerator({ tournamentId }: MatchScheduleGe
                     </div>
                   </div>
                 ))}
-                {previewMatches.length > 20 && (
+                {previewMatches.length > 30 && (
                   <div className="text-center text-muted-foreground">
-                    ... und {previewMatches.length - 20} weitere Spiele
+                    ... und {previewMatches.length - 30} weitere Spiele
                   </div>
                 )}
               </div>
