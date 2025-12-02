@@ -124,82 +124,115 @@ export default function MatchScheduleGenerator({ tournamentId }: MatchScheduleGe
     return matches;
   };
 
-  const generateKOMatches = (
-    koTeams: number,
-    groups: any[],
+  const generateKOMatchesForCategory = (
+    categoryGroups: any[],
+    teamsPerGroupAdvancing: number,
+    categoryName: string,
     startTime: Date,
     startField: number,
     startMatchNumber: number,
     config: ScheduleConfig
-  ): GeneratedMatch[] => {
+  ): { matches: GeneratedMatch[]; endTime: Date; endField: number; endMatchNumber: number } => {
     const matches: GeneratedMatch[] = [];
     let currentTime = new Date(startTime);
     let currentField = startField;
     let matchNumber = startMatchNumber;
 
-    // Calculate rounds needed
+    // Calculate total qualifying teams for this category
+    const numGroups = categoryGroups.length;
+    const totalQualifyingTeams = numGroups * teamsPerGroupAdvancing;
+
+    if (totalQualifyingTeams < 2) {
+      return { matches: [], endTime: currentTime, endField: currentField, endMatchNumber: matchNumber };
+    }
+
+    // Generate seeded placeholders using proper seeding
+    // 1st of Group A vs last qualifier of Group B, etc.
+    const seededPlaceholders: { home: string; away: string }[] = [];
+    
+    // Create list of all qualifiers in seeded order
+    const qualifiers: string[] = [];
+    for (let pos = 1; pos <= teamsPerGroupAdvancing; pos++) {
+      for (let g = 0; g < numGroups; g++) {
+        const groupName = categoryGroups[g]?.name || `Gruppe ${g + 1}`;
+        qualifiers.push(`${pos}. ${groupName}`);
+      }
+    }
+
+    // Generate proper seeding for KO bracket
+    // For power of 2: 1 vs last, 2 vs second-last, etc.
+    const nextPowerOf2 = Math.pow(2, Math.ceil(Math.log2(totalQualifyingTeams)));
+    const byes = nextPowerOf2 - totalQualifyingTeams;
+
+    // Create bracket with proper seeding
+    const bracketSize = nextPowerOf2;
+    const firstRoundMatches: { home: string | null; away: string | null }[] = [];
+    
+    // Standard bracket seeding
+    for (let i = 0; i < bracketSize / 2; i++) {
+      const seed1 = i + 1;
+      const seed2 = bracketSize - i;
+      
+      const home = seed1 <= totalQualifyingTeams ? qualifiers[seed1 - 1] : null;
+      const away = seed2 <= totalQualifyingTeams ? qualifiers[seed2 - 1] : null;
+      
+      firstRoundMatches.push({ home, away });
+    }
+
+    // Calculate rounds
     const rounds: { name: string; matchCount: number }[] = [];
-    let remaining = koTeams;
+    let remaining = bracketSize;
     
     while (remaining > 1) {
       let roundName = "";
-      if (remaining === 2) roundName = "final";
-      else if (remaining <= 4) roundName = "semifinal";
-      else if (remaining <= 8) roundName = "quarterfinal";
-      else if (remaining <= 16) roundName = "round_of_16";
+      const actualTeamsInRound = remaining;
+      if (actualTeamsInRound === 2) roundName = "final";
+      else if (actualTeamsInRound === 4) roundName = "semifinal";
+      else if (actualTeamsInRound === 8) roundName = "quarterfinal";
+      else if (actualTeamsInRound === 16) roundName = "round_of_16";
       else roundName = "round_of_32";
       
-      const matchesInRound = Math.floor(remaining / 2);
-      rounds.push({ name: roundName, matchCount: matchesInRound });
-      remaining = Math.ceil(remaining / 2);
+      rounds.push({ name: roundName, matchCount: remaining / 2 });
+      remaining = remaining / 2;
     }
-
-    // Reverse to start from first KO round
     rounds.reverse();
 
-    // Generate placeholder names based on seeding
-    const numGroups = groups.length;
-    const teamsPerGroup = numGroups > 0 ? Math.ceil(koTeams / numGroups) : koTeams;
-
-    // First round placeholders
-    let currentRoundPlaceholders: string[] = [];
-    for (let i = 1; i <= koTeams; i++) {
-      const groupIndex = ((i - 1) % numGroups);
-      const positionInGroup = Math.floor((i - 1) / numGroups) + 1;
-      const groupName = groups[groupIndex]?.name || `Gruppe ${groupIndex + 1}`;
-      currentRoundPlaceholders.push(`${positionInGroup}. ${groupName}`);
-    }
-
-    // Handle byes if koTeams is not a power of 2
-    const nextPowerOf2 = Math.pow(2, Math.ceil(Math.log2(koTeams)));
-    const byes = nextPowerOf2 - koTeams;
-
     // Generate matches for each round
+    let currentRoundPairings = firstRoundMatches;
+    
     for (let roundIdx = 0; roundIdx < rounds.length; roundIdx++) {
       const round = rounds[roundIdx];
-      const nextRoundPlaceholders: string[] = [];
+      const nextRoundPairings: { home: string | null; away: string | null }[] = [];
 
-      // For first round, handle byes
-      let matchesGenerated = 0;
-      const totalSlotsInRound = roundIdx === 0 ? nextPowerOf2 / 2 : currentRoundPlaceholders.length / 2;
-      
-      for (let i = 0; i < totalSlotsInRound; i++) {
-        const homeIdx = i * 2;
-        const awayIdx = i * 2 + 1;
-
-        // Check if this is a bye (only in first round)
-        if (roundIdx === 0 && i < byes) {
-          // Top seeds get byes - they advance directly
-          nextRoundPlaceholders.push(currentRoundPlaceholders[homeIdx] || `Sieger ${matchNumber}`);
+      for (let i = 0; i < currentRoundPairings.length; i++) {
+        const pairing = currentRoundPairings[i];
+        
+        // Check for byes (one team is null)
+        if (pairing.home === null && pairing.away !== null) {
+          // Away team gets bye
+          if (i % 2 === 0) {
+            nextRoundPairings.push({ home: pairing.away, away: null });
+          } else {
+            const lastIdx = nextRoundPairings.length - 1;
+            nextRoundPairings[lastIdx].away = pairing.away;
+          }
+          continue;
+        }
+        if (pairing.away === null && pairing.home !== null) {
+          // Home team gets bye
+          if (i % 2 === 0) {
+            nextRoundPairings.push({ home: pairing.home, away: null });
+          } else {
+            const lastIdx = nextRoundPairings.length - 1;
+            nextRoundPairings[lastIdx].away = pairing.home;
+          }
+          continue;
+        }
+        if (pairing.home === null && pairing.away === null) {
           continue;
         }
 
-        const actualHomeIdx = roundIdx === 0 ? homeIdx - byes * 2 + byes : homeIdx;
-        const actualAwayIdx = roundIdx === 0 ? awayIdx - byes * 2 + byes : awayIdx;
-
-        const homePlaceholder = currentRoundPlaceholders[actualHomeIdx] || `TBD`;
-        const awayPlaceholder = currentRoundPlaceholders[actualAwayIdx] || `TBD`;
-
+        // Both teams present - create match
         matches.push({
           home_team_id: null,
           away_team_id: null,
@@ -208,17 +241,25 @@ export default function MatchScheduleGenerator({ tournamentId }: MatchScheduleGe
           field_number: currentField,
           match_number: matchNumber,
           match_type: round.name,
-          homeTeamName: homePlaceholder,
-          awayTeamName: awayPlaceholder,
+          homeTeamName: pairing.home!,
+          awayTeamName: pairing.away!,
           groupName: "",
-          categoryName: getKORoundName(round.name),
-          home_placeholder: homePlaceholder,
-          away_placeholder: awayPlaceholder
+          categoryName: `${categoryName} - ${getKORoundName(round.name)}`,
+          home_placeholder: pairing.home!,
+          away_placeholder: pairing.away!
         });
 
-        nextRoundPlaceholders.push(`Sieger Spiel ${matchNumber}`);
+        const winnerPlaceholder = `Sieger Spiel ${matchNumber}`;
+        
+        // Add to next round
+        if (i % 2 === 0) {
+          nextRoundPairings.push({ home: winnerPlaceholder, away: null });
+        } else {
+          const lastIdx = nextRoundPairings.length - 1;
+          nextRoundPairings[lastIdx].away = winnerPlaceholder;
+        }
+
         matchNumber++;
-        matchesGenerated++;
 
         // Move to next field or next time slot
         currentField++;
@@ -232,7 +273,7 @@ export default function MatchScheduleGenerator({ tournamentId }: MatchScheduleGe
       }
 
       // Add break between KO rounds
-      if (roundIdx < rounds.length - 1 && matchesGenerated > 0) {
+      if (roundIdx < rounds.length - 1 && matches.length > 0) {
         if (currentField !== 1) {
           currentField = 1;
           currentTime = addMinutes(currentTime, config.match_duration_minutes);
@@ -240,10 +281,10 @@ export default function MatchScheduleGenerator({ tournamentId }: MatchScheduleGe
         currentTime = addMinutes(currentTime, config.ko_break_between_minutes);
       }
 
-      currentRoundPlaceholders = nextRoundPlaceholders;
+      currentRoundPairings = nextRoundPairings;
     }
 
-    return matches;
+    return { matches, endTime: currentTime, endField: currentField, endMatchNumber: matchNumber };
   };
 
   const getKORoundName = (roundType: string): string => {
@@ -415,9 +456,46 @@ export default function MatchScheduleGenerator({ tournamentId }: MatchScheduleGe
         }
         currentTime = addMinutes(currentTime, scheduleConfig.ko_break_before_minutes);
 
-        const koTeams = scheduleConfig.ko_phase_teams;
-        const koMatches = generateKOMatches(koTeams, groups || [], currentTime, currentField, matchNumber, scheduleConfig);
-        generatedMatches.push(...koMatches);
+        // Group groups by category
+        const groupsByCategory: Record<string, { groups: any[]; categoryName: string }> = {};
+        for (const group of groups || []) {
+          const categoryId = group.category_id;
+          const categoryName = (group.category as any)?.name || "Kategorie";
+          if (!groupsByCategory[categoryId]) {
+            groupsByCategory[categoryId] = { groups: [], categoryName };
+          }
+          groupsByCategory[categoryId].groups.push(group);
+        }
+
+        // Calculate teams per group that advance (ko_phase_teams is total per category)
+        // We need to determine how many from each group advance
+        for (const categoryId of Object.keys(groupsByCategory)) {
+          const { groups: categoryGroups, categoryName } = groupsByCategory[categoryId];
+          const numGroupsInCategory = categoryGroups.length;
+          
+          // Teams per group advancing = ko_phase_teams / number of groups (rounded)
+          const teamsPerGroupAdvancing = Math.ceil(scheduleConfig.ko_phase_teams / numGroupsInCategory);
+          
+          const result = generateKOMatchesForCategory(
+            categoryGroups,
+            teamsPerGroupAdvancing,
+            categoryName,
+            currentTime,
+            currentField,
+            matchNumber,
+            scheduleConfig
+          );
+          
+          generatedMatches.push(...result.matches);
+          currentTime = result.endTime;
+          currentField = result.endField;
+          matchNumber = result.endMatchNumber;
+          
+          // Add break between categories
+          if (result.matches.length > 0) {
+            currentTime = addMinutes(currentTime, scheduleConfig.ko_break_between_minutes);
+          }
+        }
       }
 
       // Validate: Check if any team plays twice at the same time (only for group matches)
