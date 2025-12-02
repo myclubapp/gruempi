@@ -123,20 +123,25 @@ serve(async (req) => {
       // Build DNS configuration instructions with actual values from API
       const records: Array<{type: string; name: string; value: string; description: string}> = [];
 
-      // Add A record (use recommended or fallback)
+      // Add A records (use recommended or fallback) - Vercel recommends multiple A records for redundancy
       if (configData.recommendedIPv4 && configData.recommendedIPv4.length > 0) {
-        const ipValues = configData.recommendedIPv4[0].value;
+        // Get rank 1 (best) recommendation
+        const bestRecommendation = configData.recommendedIPv4.find((r: any) => r.rank === 1) || configData.recommendedIPv4[0];
+        const ipValues = bestRecommendation.value;
         if (Array.isArray(ipValues) && ipValues.length > 0) {
-          records.push({
-            type: 'A',
-            name: domain,
-            value: ipValues[0],
-            description: 'Vercel A Record'
+          // Add all recommended IPs (Vercel recommends multiple for redundancy)
+          ipValues.forEach((ip: string, index: number) => {
+            records.push({
+              type: 'A',
+              name: domain,
+              value: ip,
+              description: index === 0 ? 'Vercel A Record (Primary)' : 'Vercel A Record (Backup)'
+            });
           });
         }
       }
       // Fallback if no recommended IP
-      if (records.length === 0) {
+      if (records.filter(r => r.type === 'A').length === 0) {
         records.push({
           type: 'A',
           name: domain,
