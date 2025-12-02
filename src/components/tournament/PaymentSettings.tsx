@@ -17,7 +17,6 @@ interface PaymentSettingsProps {
     creditor_zip: string | null;
     creditor_city: string | null;
     creditor_country: string | null;
-    payment_reference_prefix: string | null;
   };
   organizerProfile: {
     full_name: string;
@@ -42,8 +41,23 @@ const PaymentSettings = ({ tournament, organizerProfile, onUpdate }: PaymentSett
     creditor_zip: tournament.creditor_zip || "",
     creditor_city: tournament.creditor_city || "",
     creditor_country: tournament.creditor_country || "CH",
-    payment_reference_prefix: tournament.payment_reference_prefix || "",
   });
+
+  // Pre-fill from profile when enabling custom settings (only if no tournament values saved)
+  const handleUseCustomChange = (checked: boolean) => {
+    setUseCustom(checked);
+    if (checked && !tournament.creditor_account && organizerProfile) {
+      setFormData({
+        creditor_account: organizerProfile.creditor_account || "",
+        creditor_name: organizerProfile.full_name || "",
+        creditor_address: organizerProfile.creditor_address || "",
+        creditor_building_number: organizerProfile.creditor_building_number || "",
+        creditor_zip: organizerProfile.creditor_zip || "",
+        creditor_city: organizerProfile.creditor_city || "",
+        creditor_country: organizerProfile.creditor_country || "CH",
+      });
+    }
+  };
 
   const handleSave = async () => {
     setLoading(true);
@@ -58,7 +72,6 @@ const PaymentSettings = ({ tournament, organizerProfile, onUpdate }: PaymentSett
             creditor_zip: formData.creditor_zip,
             creditor_city: formData.creditor_city,
             creditor_country: formData.creditor_country,
-            payment_reference_prefix: formData.payment_reference_prefix,
           }
         : {
             creditor_account: null,
@@ -68,7 +81,6 @@ const PaymentSettings = ({ tournament, organizerProfile, onUpdate }: PaymentSett
             creditor_zip: null,
             creditor_city: null,
             creditor_country: null,
-            payment_reference_prefix: formData.payment_reference_prefix,
           };
 
       const { error } = await supabase
@@ -105,7 +117,7 @@ const PaymentSettings = ({ tournament, organizerProfile, onUpdate }: PaymentSett
               type="checkbox"
               id="use_custom"
               checked={useCustom}
-              onChange={(e) => setUseCustom(e.target.checked)}
+              onChange={(e) => handleUseCustomChange(e.target.checked)}
               className="w-4 h-4 rounded border-gray-300"
             />
             <Label htmlFor="use_custom" className="cursor-pointer">
@@ -217,17 +229,9 @@ const PaymentSettings = ({ tournament, organizerProfile, onUpdate }: PaymentSett
             </div>
           )}
 
-          <div className="space-y-2 pt-4 border-t">
-            <Label htmlFor="payment_reference_prefix">Referenz-Präfix (optional)</Label>
-            <Input
-              id="payment_reference_prefix"
-              value={formData.payment_reference_prefix}
-              onChange={(e) => setFormData({ ...formData, payment_reference_prefix: e.target.value })}
-              placeholder="T2024"
-              maxLength={5}
-            />
-            <p className="text-xs text-muted-foreground">
-              Optional: Kurzes Präfix für die Zahlungsreferenz (max. 5 Zeichen)
+          <div className="pt-4 border-t">
+            <p className="text-sm text-muted-foreground">
+              Die Referenznummer wird automatisch basierend auf der Team-ID generiert.
             </p>
           </div>
         </div>
