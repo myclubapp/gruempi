@@ -10,6 +10,8 @@ import { toast } from "sonner";
 import ModernNavigation from "@/components/ModernNavigation";
 import { ArrowLeft, Users } from "lucide-react";
 import { z } from "zod";
+import TeamSchedule from "@/components/tournament/TeamSchedule";
+import TeamStandings from "@/components/tournament/TeamStandings";
 
 const playerSchema = z.object({
   first_name: z.string().trim().min(1, "Vorname ist erforderlich").max(100, "Vorname zu lang"),
@@ -259,6 +261,12 @@ export default function PlayerRegistration() {
             </CardContent>
           </Card>
         )}
+
+        {/* Team Schedule and Standings */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+          <TeamSchedule teamId={teamId!} tournamentId={team.tournament.id} />
+          <TeamStandings teamId={teamId!} tournamentId={team.tournament.id} />
+        </div>
 
         {/* Registration Form */}
         <form onSubmit={handleSubmit}>

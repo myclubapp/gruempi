@@ -87,13 +87,30 @@ export default function MatchScheduleGenerator({ tournamentId }: MatchScheduleGe
 
     if (n < 2) return matches;
 
+    // Handle odd number of teams by adding a dummy "bye" team
+    const teams = [...teamIds];
+    const isOdd = n % 2 === 1;
+    if (isOdd) {
+      teams.push("BYE");
+    }
+
+    const totalTeams = teams.length;
+    const rounds = totalTeams - 1;
+    const matchesPerRound = totalTeams / 2;
+
     // Round-robin algorithm
-    for (let round = 0; round < n - 1; round++) {
-      for (let i = 0; i < n / 2; i++) {
-        const home = (round + i) % n;
-        const away = (n - 1 - i + round) % n;
-        if (home !== away) {
-          matches.push([teamIds[home], teamIds[away]]);
+    for (let round = 0; round < rounds; round++) {
+      for (let i = 0; i < matchesPerRound; i++) {
+        const home = (round + i) % (totalTeams - 1);
+        const away = (totalTeams - 1 - i + round) % (totalTeams - 1);
+        
+        // Last team stays fixed, others rotate
+        const homeTeam = i === 0 ? teams[totalTeams - 1] : teams[home];
+        const awayTeam = teams[away];
+        
+        // Skip matches involving the "BYE" team
+        if (homeTeam !== "BYE" && awayTeam !== "BYE") {
+          matches.push([homeTeam, awayTeam]);
         }
       }
     }
