@@ -55,6 +55,7 @@ const TournamentDetail = () => {
   const [organizerProfile, setOrganizerProfile] = useState<any>(null);
   const [teams, setTeams] = useState<any[]>([]);
   const [categories, setCategories] = useState<any[]>([]);
+  const [groups, setGroups] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [editingTeam, setEditingTeam] = useState<any>(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
@@ -119,6 +120,17 @@ const TournamentDetail = () => {
     if (!teamsError && teamsData) {
       setTeams(teamsData);
     }
+
+    // Load groups
+    const { data: groupsData } = await supabase
+      .from("tournament_groups")
+      .select("*, category:tournament_categories(id, name)")
+      .eq("tournament_id", id)
+      .order("name");
+
+    if (groupsData) {
+      setGroups(groupsData);
+    }
     
     setLoading(false);
   };
@@ -159,14 +171,22 @@ const TournamentDetail = () => {
     }
   };
 
-  const handleEditTeam = (team: any) => {
+  const handleEditTeam = async (team: any) => {
+    // Get current group assignment
+    const { data: groupAssignment } = await supabase
+      .from("team_group_assignments")
+      .select("group_id")
+      .eq("team_id", team.id)
+      .maybeSingle();
+
     setEditingTeam({
       id: team.id,
       name: team.name,
       contact_name: team.contact_name,
       contact_email: team.contact_email,
       contact_phone: team.contact_phone || "",
-      payment_status: team.payment_status,
+      category_id: team.category?.id || team.category_id,
+      group_id: groupAssignment?.group_id || "",
     });
     setEditDialogOpen(true);
   };
@@ -174,6 +194,7 @@ const TournamentDetail = () => {
   const handleSaveTeam = async () => {
     if (!editingTeam) return;
 
+    // Update team info
     const { error } = await supabase
       .from("teams")
       .update({
@@ -181,18 +202,41 @@ const TournamentDetail = () => {
         contact_name: editingTeam.contact_name,
         contact_email: editingTeam.contact_email,
         contact_phone: editingTeam.contact_phone,
-        payment_status: editingTeam.payment_status,
       })
       .eq("id", editingTeam.id);
 
     if (error) {
       toast.error("Fehler beim Speichern");
-    } else {
-      toast.success("Team aktualisiert");
-      setEditDialogOpen(false);
-      setEditingTeam(null);
-      loadTournament();
+      return;
     }
+
+    // Update group assignment if changed
+    if (editingTeam.group_id) {
+      // First delete existing assignment
+      await supabase
+        .from("team_group_assignments")
+        .delete()
+        .eq("team_id", editingTeam.id);
+
+      // Then create new assignment
+      await supabase
+        .from("team_group_assignments")
+        .insert({
+          team_id: editingTeam.id,
+          group_id: editingTeam.group_id,
+        });
+    } else {
+      // Remove from group if no group selected
+      await supabase
+        .from("team_group_assignments")
+        .delete()
+        .eq("team_id", editingTeam.id);
+    }
+
+    toast.success("Team aktualisiert");
+    setEditDialogOpen(false);
+    setEditingTeam(null);
+    loadTournament();
   };
 
   const handleDeleteTeam = async () => {
@@ -681,16 +725,25 @@ const TournamentDetail = () => {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="payment-status">Zahlungsstatus</Label>
+                  <Label htmlFor="group-id">Gruppe</Label>
                   <select
-                    id="payment-status"
-                    value={editingTeam.payment_status}
-                    onChange={(e) => setEditingTeam({ ...editingTeam, payment_status: e.target.value })}
+                    id="group-id"
+                    value={editingTeam.group_id}
+                    onChange={(e) => setEditingTeam({ ...editingTeam, group_id: e.target.value })}
                     className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   >
-                    <option value="pending">Ausstehend</option>
-                    <option value="paid">Bezahlt</option>
+                    <option value="">Keine Gruppe</option>
+                    {groups
+                      .filter(g => g.category_id === editingTeam.category_id)
+                      .map((group) => (
+                        <option key={group.id} value={group.id}>
+                          {group.name} ({group.category?.name})
+                        </option>
+                      ))}
                   </select>
+                  <p className="text-xs text-muted-foreground">
+                    Nur Gruppen der gleichen Kategorie werden angezeigt
+                  </p>
                 </div>
               </div>
             )}
