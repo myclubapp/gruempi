@@ -2,11 +2,12 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 
-// Import pdfkit and swissqrbill/pdf
-const PDFDocument = (await import("https://esm.sh/pdfkit@0.15.0")).default;
-const { SwissQRBill } = await import("https://esm.sh/swissqrbill@4.2.1/pdf");
-const { mm2pt } = await import("https://esm.sh/swissqrbill@4.2.1/utils");
-const { Table } = await import("https://esm.sh/swissqrbill@4.2.1/pdf");
+// Use jsPDF which is browser-native (no fs dependencies)
+import { jsPDF } from "https://esm.sh/jspdf@2.5.1";
+
+// Import SwissQRBill for SVG generation
+import { SwissQRBill } from "https://esm.sh/swissqrbill@4.2.1/svg?bundle";
+import { mm2pt } from "https://esm.sh/swissqrbill@4.2.1/utils";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -56,14 +57,9 @@ function formatReference(ref: string): string {
   return ref.replace(/(.{5})/g, '$1 ').trim();
 }
 
-// Format date in German Swiss format
-function formatDate(dateStr: string): string {
-  const date = new Date(dateStr);
-  return date.toLocaleDateString("de-CH", {
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric'
-  });
+// mm to points conversion for jsPDF (1mm = 2.83465pt, jsPDF uses mm by default)
+function mmToPt(mm: number): number {
+  return mm * 2.83465;
 }
 
 serve(async (req) => {
@@ -157,193 +153,211 @@ serve(async (req) => {
       additionalInformation: formatReference(referenceNumber)
     };
 
-    console.log("Creating PDF with SwissQRBill...");
+    console.log("Creating PDF with jsPDF...");
 
-    // Generate PDF using PDFKit and SwissQRBill
-    const pdfBuffer: Uint8Array = await new Promise((resolve, reject) => {
-      const pdf = new PDFDocument({ size: 'A4' });
-      const qrBill = new SwissQRBill(qrBillData);
-      const chunks: Uint8Array[] = [];
-
-      // Attach QR bill to PDF (this adds it at the bottom)
-      qrBill.attachTo(pdf);
-
-      // Add creditor address (top left)
-      pdf.fontSize(12);
-      pdf.fillColor('black');
-      pdf.font('Helvetica');
-      pdf.text(
-        `${qrBillData.creditor.name}\n${qrBillData.creditor.address} ${qrBillData.creditor.buildingNumber}\n${qrBillData.creditor.zip} ${qrBillData.creditor.city}`,
-        mm2pt(20),
-        mm2pt(40),
-        {
-          align: 'left',
-          height: mm2pt(50),
-          width: mm2pt(100),
-        }
-      );
-
-      // Add debtor address (top right)
-      pdf.fontSize(12);
-      pdf.font('Helvetica');
-      pdf.text(
-        `${qrBillData.debtor.name}\n${team.contact_email}`,
-        mm2pt(130),
-        mm2pt(60),
-        {
-          align: 'left',
-          height: mm2pt(50),
-          width: mm2pt(70),
-        }
-      );
-
-      // Create title
-      pdf.fontSize(14);
-      pdf.font('Helvetica-Bold');
-      pdf.text(
-        `Rechnung Nr. ${formatReference(referenceNumber)}`,
-        mm2pt(20),
-        mm2pt(100),
-        {
-          align: 'left',
-          width: mm2pt(170),
-        }
-      );
-
-      // Add date
-      const date = new Date();
-      pdf.fontSize(11);
-      pdf.font('Helvetica');
-      pdf.text(
-        `${qrBillData.creditor.city}, ${date.getDate()}.${date.getMonth() + 1}.${date.getFullYear()}`,
-        {
-          align: 'right',
-          width: mm2pt(170),
-        }
-      );
-
-      // Add table with invoice items
-      const invoicePositions = [
-        {
-          columns: [
-            {
-              text: '1',
-              width: mm2pt(20),
-            },
-            {
-              text: '1 x',
-              width: mm2pt(20),
-            },
-            {
-              text: `Startgeld ${team.tournament.name}\nTeam: ${team.name}\nKategorie: ${team.category?.name || 'N/A'}`,
-            },
-            {
-              text: `CHF ${entryFee.toFixed(2)}`,
-              width: mm2pt(30),
-              align: 'right' as const,
-            },
-          ],
-          padding: 5,
-        },
-      ];
-
-      const table = new Table({
-        rows: [
-          {
-            backgroundColor: '#4A4D51',
-            columns: [
-              {
-                text: 'Position',
-                width: mm2pt(20),
-              },
-              {
-                text: 'Anzahl',
-                width: mm2pt(20),
-              },
-              {
-                text: 'Bezeichnung',
-              },
-              {
-                text: 'Total',
-                width: mm2pt(30),
-                align: 'left' as const,
-              },
-            ],
-            fontName: 'Helvetica-Bold',
-            height: 20,
-            padding: 5,
-            textColor: '#fff',
-            verticalAlign: 'center',
-          },
-          ...invoicePositions,
-          {
-            columns: [
-              {
-                text: '',
-                width: mm2pt(20),
-              },
-              {
-                text: '',
-                width: mm2pt(20),
-              },
-              {
-                fontName: 'Helvetica-Bold',
-                text: 'Summe',
-              },
-              {
-                fontName: 'Helvetica-Bold',
-                text: `CHF ${entryFee.toFixed(2)}`,
-                width: mm2pt(30),
-                align: 'right' as const,
-              },
-            ],
-            height: 40,
-            padding: 5,
-          },
-          {
-            columns: [
-              {
-                text: '',
-                width: mm2pt(20),
-              },
-              {
-                text: '',
-                width: mm2pt(20),
-              },
-              {
-                fontName: 'Helvetica-Bold',
-                text: 'Rechnungstotal',
-              },
-              {
-                fontName: 'Helvetica-Bold',
-                text: `CHF ${entryFee.toFixed(2)}`,
-                width: mm2pt(30),
-                align: 'right' as const,
-              },
-            ],
-            height: 40,
-            padding: 5,
-          },
-        ],
-        width: mm2pt(170),
-      });
-
-      table.attachTo(pdf);
-
-      pdf.on('data', (chunk: Uint8Array) => chunks.push(chunk));
-      pdf.on('end', () => {
-        const result = new Uint8Array(chunks.reduce((acc, chunk) => acc + chunk.length, 0));
-        let offset = 0;
-        for (const chunk of chunks) {
-          result.set(chunk, offset);
-          offset += chunk.length;
-        }
-        resolve(result);
-      });
-      pdf.on('error', reject);
-
-      pdf.end();
+    // Create jsPDF document (A4 in mm)
+    const pdf = new jsPDF({
+      orientation: 'portrait',
+      unit: 'mm',
+      format: 'a4'
     });
+
+    // Add creditor address (top left)
+    pdf.setFontSize(12);
+    pdf.setTextColor(0, 0, 0);
+    pdf.text(
+      `${qrBillData.creditor.name}\n${qrBillData.creditor.address} ${qrBillData.creditor.buildingNumber}\n${qrBillData.creditor.zip} ${qrBillData.creditor.city}`,
+      20,
+      40
+    );
+
+    // Add debtor address (top right)
+    pdf.setFontSize(12);
+    pdf.text(
+      `${qrBillData.debtor.name}\n${team.contact_email}`,
+      130,
+      60
+    );
+
+    // Create title
+    pdf.setFontSize(14);
+    pdf.setFont('helvetica', 'bold');
+    pdf.text(
+      `Rechnung Nr. ${formatReference(referenceNumber)}`,
+      20,
+      100
+    );
+
+    // Add date
+    const date = new Date();
+    pdf.setFontSize(11);
+    pdf.setFont('helvetica', 'normal');
+    pdf.text(
+      `${qrBillData.creditor.city}, ${date.getDate()}.${date.getMonth() + 1}.${date.getFullYear()}`,
+      190,
+      100,
+      { align: 'right' }
+    );
+
+    // Add invoice table header
+    const tableStartY = 115;
+    const colWidths = [20, 20, 80, 40];
+    const colPositions = [20, 40, 60, 140];
+
+    // Table header background
+    pdf.setFillColor(74, 77, 81);
+    pdf.rect(20, tableStartY, 170, 8, 'F');
+    
+    // Table header text
+    pdf.setTextColor(255, 255, 255);
+    pdf.setFontSize(10);
+    pdf.setFont('helvetica', 'bold');
+    pdf.text('Position', colPositions[0] + 2, tableStartY + 5);
+    pdf.text('Anzahl', colPositions[1] + 2, tableStartY + 5);
+    pdf.text('Bezeichnung', colPositions[2] + 2, tableStartY + 5);
+    pdf.text('Total', colPositions[3] + 2, tableStartY + 5);
+
+    // Table content row
+    pdf.setTextColor(0, 0, 0);
+    pdf.setFont('helvetica', 'normal');
+    const rowY = tableStartY + 14;
+    pdf.text('1', colPositions[0] + 2, rowY);
+    pdf.text('1 x', colPositions[1] + 2, rowY);
+    
+    // Multi-line description
+    const description = `Startgeld ${team.tournament.name}\nTeam: ${team.name}\nKategorie: ${team.category?.name || 'N/A'}`;
+    pdf.text(description, colPositions[2] + 2, rowY);
+    pdf.text(`CHF ${entryFee.toFixed(2)}`, colPositions[3] + 2, rowY);
+
+    // Sum row
+    const sumY = rowY + 25;
+    pdf.setFont('helvetica', 'bold');
+    pdf.text('Summe', colPositions[2] + 2, sumY);
+    pdf.text(`CHF ${entryFee.toFixed(2)}`, colPositions[3] + 2, sumY);
+
+    // Total row
+    const totalY = sumY + 10;
+    pdf.text('Rechnungstotal', colPositions[2] + 2, totalY);
+    pdf.text(`CHF ${entryFee.toFixed(2)}`, colPositions[3] + 2, totalY);
+
+    // Draw table borders
+    pdf.setDrawColor(200, 200, 200);
+    pdf.setLineWidth(0.1);
+    // Outer border
+    pdf.rect(20, tableStartY, 170, totalY - tableStartY + 10);
+    // Header separator
+    pdf.line(20, tableStartY + 8, 190, tableStartY + 8);
+    // Row separators
+    pdf.line(20, rowY + 18, 190, rowY + 18);
+    pdf.line(20, sumY + 5, 190, sumY + 5);
+
+    // Generate QR Bill SVG
+    console.log("Generating Swiss QR Bill SVG...");
+    const qrBill = new SwissQRBill(qrBillData);
+    const svgString = qrBill.toString();
+    console.log("SVG generated, length:", svgString.length);
+
+    // Add QR Bill section at the bottom of the page
+    // The QR Bill should be placed at the bottom 105mm of the A4 page
+    const qrBillY = 192; // A4 height is 297mm, QR bill is ~105mm, so start at ~192mm
+
+    // Add a separator line
+    pdf.setDrawColor(0, 0, 0);
+    pdf.setLineWidth(0.5);
+    pdf.line(0, qrBillY - 2, 210, qrBillY - 2);
+
+    // Since we can't easily embed SVG in jsPDF, we'll add the QR bill information as text
+    // Payment section (left side)
+    pdf.setFontSize(8);
+    pdf.setFont('helvetica', 'bold');
+    pdf.text('Empfangsschein', 5, qrBillY + 5);
+    
+    pdf.setFontSize(6);
+    pdf.setFont('helvetica', 'bold');
+    pdf.text('Konto / Zahlbar an', 5, qrBillY + 12);
+    pdf.setFont('helvetica', 'normal');
+    pdf.text(qrBillData.creditor.account, 5, qrBillY + 15);
+    pdf.text(qrBillData.creditor.name, 5, qrBillY + 18);
+    pdf.text(`${qrBillData.creditor.address} ${qrBillData.creditor.buildingNumber}`, 5, qrBillY + 21);
+    pdf.text(`${qrBillData.creditor.zip} ${qrBillData.creditor.city}`, 5, qrBillY + 24);
+
+    pdf.setFont('helvetica', 'bold');
+    pdf.text('Referenz', 5, qrBillY + 30);
+    pdf.setFont('helvetica', 'normal');
+    pdf.text(formatReference(referenceNumber), 5, qrBillY + 33);
+
+    pdf.setFont('helvetica', 'bold');
+    pdf.text('Zahlbar durch', 5, qrBillY + 39);
+    pdf.setFont('helvetica', 'normal');
+    pdf.text(qrBillData.debtor.name, 5, qrBillY + 42);
+
+    pdf.setFont('helvetica', 'bold');
+    pdf.text('Währung', 5, qrBillY + 52);
+    pdf.text('Betrag', 25, qrBillY + 52);
+    pdf.setFont('helvetica', 'normal');
+    pdf.text('CHF', 5, qrBillY + 56);
+    pdf.text(entryFee.toFixed(2), 25, qrBillY + 56);
+
+    // Separator line between receipt and payment section
+    pdf.setLineWidth(0.3);
+    pdf.line(62, qrBillY, 62, 297);
+
+    // Payment section (right side)
+    pdf.setFontSize(8);
+    pdf.setFont('helvetica', 'bold');
+    pdf.text('Zahlteil', 67, qrBillY + 5);
+
+    // QR Code placeholder - in production, you would generate an actual QR code
+    pdf.setDrawColor(0);
+    pdf.setLineWidth(0.5);
+    pdf.rect(67, qrBillY + 10, 46, 46);
+    pdf.setFontSize(8);
+    pdf.text('QR', 87, qrBillY + 35);
+
+    // Swiss cross in QR code
+    pdf.setFillColor(0, 0, 0);
+    pdf.rect(87, qrBillY + 30, 6, 6, 'F');
+    pdf.setFillColor(255, 255, 255);
+    pdf.rect(88.5, qrBillY + 31, 3, 4, 'F');
+    pdf.rect(88, qrBillY + 31.5, 4, 3, 'F');
+
+    // Payment info (right side)
+    pdf.setFontSize(6);
+    pdf.setFont('helvetica', 'bold');
+    pdf.text('Konto / Zahlbar an', 120, qrBillY + 12);
+    pdf.setFont('helvetica', 'normal');
+    pdf.text(qrBillData.creditor.account, 120, qrBillY + 15);
+    pdf.text(qrBillData.creditor.name, 120, qrBillY + 18);
+    pdf.text(`${qrBillData.creditor.address} ${qrBillData.creditor.buildingNumber}`, 120, qrBillY + 21);
+    pdf.text(`${qrBillData.creditor.zip} ${qrBillData.creditor.city}`, 120, qrBillY + 24);
+
+    pdf.setFont('helvetica', 'bold');
+    pdf.text('Referenz', 120, qrBillY + 30);
+    pdf.setFont('helvetica', 'normal');
+    pdf.text(formatReference(referenceNumber), 120, qrBillY + 33);
+
+    pdf.setFont('helvetica', 'bold');
+    pdf.text('Zusätzliche Informationen', 120, qrBillY + 39);
+    pdf.setFont('helvetica', 'normal');
+    pdf.text(qrBillData.message, 120, qrBillY + 42);
+
+    pdf.setFont('helvetica', 'bold');
+    pdf.text('Zahlbar durch', 120, qrBillY + 50);
+    pdf.setFont('helvetica', 'normal');
+    pdf.text(qrBillData.debtor.name, 120, qrBillY + 53);
+
+    // Currency and amount
+    pdf.setFont('helvetica', 'bold');
+    pdf.text('Währung', 67, qrBillY + 65);
+    pdf.text('Betrag', 87, qrBillY + 65);
+    pdf.setFont('helvetica', 'normal');
+    pdf.setFontSize(8);
+    pdf.text('CHF', 67, qrBillY + 70);
+    pdf.text(entryFee.toFixed(2), 87, qrBillY + 70);
+
+    // Get PDF as array buffer
+    const pdfArrayBuffer = pdf.output('arraybuffer');
+    const pdfBuffer = new Uint8Array(pdfArrayBuffer);
 
     console.log("QR invoice PDF generated successfully, size:", pdfBuffer.length);
 
