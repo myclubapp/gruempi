@@ -17,6 +17,7 @@ import PlayerRegistration from "./pages/PlayerRegistration";
 import RegistrationSuccess from "./pages/RegistrationSuccess";
 import Profile from "./pages/Profile";
 import ProtectedRoute from "./components/ProtectedRoute";
+import CustomDomainRouter from "./components/CustomDomainRouter";
 
 const queryClient = new QueryClient();
 
@@ -27,58 +28,60 @@ const App = () => (
         <Toaster />
         <Sonner />
         <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Index />} />
-          <Route path="/auth" element={<Auth />} />
-          <Route path="/tournaments" element={<PublicTournaments />} />
-          <Route path="/tournaments/:id" element={<PublicTournamentDetail />} />
-          <Route path="/teams/:teamId/register/:token" element={<PlayerRegistration />} />
-          <Route path="/tournaments/:teamId/registration-success" element={<RegistrationSuccess />} />
-          <Route
-            path="/dashboard"
-            element={
-              <ProtectedRoute>
-                <Dashboard />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/dashboard/create-tournament"
-            element={
-              <ProtectedRoute>
-                <CreateTournament />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/dashboard/tournament/:id"
-            element={
-              <ProtectedRoute>
-                <TournamentDetail />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/dashboard/tournament/:id/cockpit"
-            element={
-              <ProtectedRoute>
-                <TournamentCockpit />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/profile"
-            element={
-              <ProtectedRoute>
-                <Profile />
-              </ProtectedRoute>
-            }
-          />
-          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </BrowserRouter>
-    </TooltipProvider>
+          <CustomDomainRouter>
+            <Routes>
+              <Route path="/" element={<Index />} />
+              <Route path="/auth" element={<Auth />} />
+              <Route path="/tournaments" element={<PublicTournaments />} />
+              <Route path="/tournaments/:id" element={<PublicTournamentDetail />} />
+              <Route path="/teams/:teamId/register/:token" element={<PlayerRegistration />} />
+              <Route path="/tournaments/:teamId/registration-success" element={<RegistrationSuccess />} />
+              <Route
+                path="/dashboard"
+                element={
+                  <ProtectedRoute>
+                    <Dashboard />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/dashboard/create-tournament"
+                element={
+                  <ProtectedRoute>
+                    <CreateTournament />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/dashboard/tournament/:id"
+                element={
+                  <ProtectedRoute>
+                    <TournamentDetail />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/dashboard/tournament/:id/cockpit"
+                element={
+                  <ProtectedRoute>
+                    <TournamentCockpit />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/profile"
+                element={
+                  <ProtectedRoute>
+                    <Profile />
+                  </ProtectedRoute>
+                }
+              />
+              {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </CustomDomainRouter>
+        </BrowserRouter>
+      </TooltipProvider>
     </ThemeProvider>
   </QueryClientProvider>
 );
