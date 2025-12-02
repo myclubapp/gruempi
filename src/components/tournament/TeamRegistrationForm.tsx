@@ -164,6 +164,16 @@ const TeamRegistrationForm = ({ tournament, categories, onBack }: TeamRegistrati
         window.open(url, "_blank");
       }
 
+      // Send confirmation email
+      try {
+        await supabase.functions.invoke("send-team-confirmation", {
+          body: { team_id: team.id },
+        });
+      } catch (emailError) {
+        console.error("Error sending confirmation email:", emailError);
+        // Don't block navigation if email fails
+      }
+
       toast.success("Team erfolgreich angemeldet!");
       navigate(`/tournaments/${team.id}/registration-success`);
     } catch (error: any) {
