@@ -37,6 +37,7 @@ interface TeamRegistrationFormProps {
     max_licensed_players: number;
     min_players: number;
     max_players: number;
+    entry_fee: number;
   }>;
   onBack: () => void;
 }
@@ -125,13 +126,15 @@ const TeamRegistrationForm = ({ tournament, categories, onBack }: TeamRegistrati
       if (teamError) throw teamError;
 
       // Handle payment
+      const entryFee = selectedCategory?.entry_fee || tournament.entry_fee;
+      
       if (formData.payment_method === "stripe") {
         const { data: paymentData, error: paymentError } = await supabase.functions.invoke(
           "create-team-payment",
           {
             body: {
               team_id: team.id,
-              amount: tournament.entry_fee,
+              amount: entryFee,
             },
           }
         );
@@ -236,7 +239,7 @@ const TeamRegistrationForm = ({ tournament, categories, onBack }: TeamRegistrati
                   <option value="">Bitte wählen...</option>
                   {categories.map((cat) => (
                     <option key={cat.id} value={cat.id}>
-                      {cat.name} ({cat.min_players}-{cat.max_players} Spieler, max.{" "}
+                      {cat.name} - CHF {cat.entry_fee.toFixed(2)} ({cat.min_players}-{cat.max_players} Spieler, max.{" "}
                       {cat.max_licensed_players} lizenziert)
                     </option>
                   ))}
@@ -391,7 +394,12 @@ const TeamRegistrationForm = ({ tournament, categories, onBack }: TeamRegistrati
           <Card>
             <CardHeader>
               <CardTitle>Zahlung</CardTitle>
-              <CardDescription>Startgeld: CHF {tournament.entry_fee.toFixed(2)}</CardDescription>
+              <CardDescription>
+                Startgeld: CHF {selectedCategory ? selectedCategory.entry_fee.toFixed(2) : tournament.entry_fee.toFixed(2)}
+                {selectedCategory && selectedCategory.entry_fee !== tournament.entry_fee && (
+                  <span className="text-muted-foreground"> (kategorienspezifisch)</span>
+                )}
+              </CardDescription>
             </CardHeader>
             <CardContent>
               <RadioGroup

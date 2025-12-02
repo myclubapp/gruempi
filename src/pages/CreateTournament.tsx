@@ -17,6 +17,7 @@ interface Category {
   max_players: number;
   min_teams: number;
   max_teams: number | null;
+  entry_fee: number;
 }
 
 const CreateTournament = () => {
@@ -48,6 +49,7 @@ const CreateTournament = () => {
       max_players: 10,
       min_teams: 2,
       max_teams: null,
+      entry_fee: 0,
     },
   ]);
 
@@ -132,6 +134,7 @@ const CreateTournament = () => {
         max_players: cat.max_players,
         min_teams: cat.min_teams,
         max_teams: cat.max_teams,
+        entry_fee: cat.entry_fee,
       }));
 
       const { error: categoriesError } = await supabase
@@ -161,6 +164,7 @@ const CreateTournament = () => {
         max_players: 10,
         min_teams: 2,
         max_teams: null,
+        entry_fee: 0,
       },
     ]);
   };
@@ -360,6 +364,24 @@ const CreateTournament = () => {
                         placeholder="z.B. Mixed, Sportler/innen"
                         required
                       />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label>Startgeld (CHF) *</Label>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={category.entry_fee}
+                        onChange={(e) =>
+                          updateCategory(index, "entry_fee", parseFloat(e.target.value) || 0)
+                        }
+                        placeholder="30.00"
+                        required
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Spezifisches Startgeld für diese Kategorie
+                      </p>
                     </div>
 
                     <div className="space-y-2">

@@ -306,6 +306,7 @@ export type Database = {
         Row: {
           created_at: string | null
           description: string | null
+          entry_fee: number
           id: string
           max_licensed_players: number
           max_players: number
@@ -318,6 +319,7 @@ export type Database = {
         Insert: {
           created_at?: string | null
           description?: string | null
+          entry_fee?: number
           id?: string
           max_licensed_players?: number
           max_players?: number
@@ -330,6 +332,7 @@ export type Database = {
         Update: {
           created_at?: string | null
           description?: string | null
+          entry_fee?: number
           id?: string
           max_licensed_players?: number
           max_players?: number
