@@ -19,14 +19,30 @@ function calculateMod10Recursive(ref: string): number {
   return (10 - carry) % 10;
 }
 
-// Generate a valid 27-digit QR reference
-function generateQRReference(tournamentId: string, teamId: string, timestamp: number): string {
-  const tournamentDigits = tournamentId.replace(/[^0-9]/g, '').substring(0, 8);
-  const teamDigits = teamId.replace(/[^0-9]/g, '').substring(0, 8);
-  const timestampDigits = String(timestamp).slice(-9);
+// Convert hex string to numeric string
+function hexToNumeric(hex: string): string {
+  // Remove dashes and convert each hex char to 2 digits (0-15 -> 00-15)
+  const cleanHex = hex.replace(/-/g, '').toLowerCase();
+  let result = '';
+  for (const char of cleanHex) {
+    const val = parseInt(char, 16);
+    result += val.toString().padStart(2, '0');
+  }
+  return result;
+}
+
+// Generate a valid 27-digit QR reference from team and tournament IDs
+function generateQRReference(tournamentId: string, teamId: string): string {
+  // Convert UUIDs to numeric strings
+  const tournamentNumeric = hexToNumeric(tournamentId);
+  const teamNumeric = hexToNumeric(teamId);
   
-  let base = (tournamentDigits + teamDigits + timestampDigits).replace(/[^0-9]/g, '');
-  base = base.padStart(26, '0').substring(0, 26);
+  // Take first 13 digits from each to create a 26-digit base
+  const tournamentPart = tournamentNumeric.substring(0, 13);
+  const teamPart = teamNumeric.substring(0, 13);
+  
+  let base = (tournamentPart + teamPart).substring(0, 26);
+  base = base.padStart(26, '0');
   
   const checkDigit = calculateMod10Recursive(base);
   return base + String(checkDigit);
@@ -144,7 +160,7 @@ serve(async (req) => {
     }
 
     // Generate valid 27-digit QR reference
-    const referenceNumber = generateQRReference(team.tournament.id, team_id, Date.now());
+    const referenceNumber = generateQRReference(team.tournament.id, team_id);
     
     console.log("Generated QR reference:", referenceNumber);
 
