@@ -124,33 +124,29 @@ export default function MatchScheduleGenerator({ tournamentId }: MatchScheduleGe
     return matches;
   };
 
-  const generateKOMatchesForCategory = (
-    categoryGroups: any[],
-    teamsPerGroupAdvancing: number,
-    categoryName: string,
-    startTime: Date,
-    startField: number,
-    startMatchNumber: number,
-    config: ScheduleConfig
-  ): { matches: GeneratedMatch[]; endTime: Date; endField: number; endMatchNumber: number } => {
-    const matches: GeneratedMatch[] = [];
-    let currentTime = new Date(startTime);
-    let currentField = startField;
-    let matchNumber = startMatchNumber;
+  interface KORound {
+    categoryId: string;
+    categoryName: string;
+    roundName: string;
+    roundIndex: number;
+    pairings: { home: string; away: string; matchIndex: number }[];
+  }
 
-    // Calculate total qualifying teams for this category
+  const generateKOBracketStructure = (
+    categoryId: string,
+    categoryName: string,
+    categoryGroups: any[],
+    teamsPerGroupAdvancing: number
+  ): { rounds: KORound[]; totalMatches: number } => {
     const numGroups = categoryGroups.length;
     const totalQualifyingTeams = numGroups * teamsPerGroupAdvancing;
 
     if (totalQualifyingTeams < 2) {
-      return { matches: [], endTime: currentTime, endField: currentField, endMatchNumber: matchNumber };
+      return { rounds: [], totalMatches: 0 };
     }
 
-    // Generate seeded placeholders using proper seeding
-    // 1st of Group A vs last qualifier of Group B, etc.
-    const seededPlaceholders: { home: string; away: string }[] = [];
-    
     // Create list of all qualifiers in seeded order
+    // 1. Gruppe A, 1. Gruppe B, ..., 2. Gruppe A, 2. Gruppe B, ...
     const qualifiers: string[] = [];
     for (let pos = 1; pos <= teamsPerGroupAdvancing; pos++) {
       for (let g = 0; g < numGroups; g++) {
@@ -159,16 +155,12 @@ export default function MatchScheduleGenerator({ tournamentId }: MatchScheduleGe
       }
     }
 
-    // Generate proper seeding for KO bracket
-    // For power of 2: 1 vs last, 2 vs second-last, etc.
+    // Calculate bracket size (next power of 2)
     const nextPowerOf2 = Math.pow(2, Math.ceil(Math.log2(totalQualifyingTeams)));
-    const byes = nextPowerOf2 - totalQualifyingTeams;
-
-    // Create bracket with proper seeding
     const bracketSize = nextPowerOf2;
-    const firstRoundMatches: { home: string | null; away: string | null }[] = [];
-    
-    // Standard bracket seeding
+
+    // Generate first round pairings with proper seeding (1 vs n, 2 vs n-1, etc.)
+    let currentRoundPairings: { home: string | null; away: string | null }[] = [];
     for (let i = 0; i < bracketSize / 2; i++) {
       const seed1 = i + 1;
       const seed2 = bracketSize - i;
@@ -176,55 +168,53 @@ export default function MatchScheduleGenerator({ tournamentId }: MatchScheduleGe
       const home = seed1 <= totalQualifyingTeams ? qualifiers[seed1 - 1] : null;
       const away = seed2 <= totalQualifyingTeams ? qualifiers[seed2 - 1] : null;
       
-      firstRoundMatches.push({ home, away });
+      currentRoundPairings.push({ home, away });
     }
 
-    // Calculate rounds
-    const rounds: { name: string; matchCount: number }[] = [];
+    // Calculate round names
+    const getRoundName = (teamsInRound: number): string => {
+      if (teamsInRound === 2) return "final";
+      if (teamsInRound === 4) return "semifinal";
+      if (teamsInRound === 8) return "quarterfinal";
+      if (teamsInRound === 16) return "round_of_16";
+      return "round_of_32";
+    };
+
+    // Build all rounds
+    const rounds: KORound[] = [];
     let remaining = bracketSize;
-    
-    while (remaining > 1) {
-      let roundName = "";
-      const actualTeamsInRound = remaining;
-      if (actualTeamsInRound === 2) roundName = "final";
-      else if (actualTeamsInRound === 4) roundName = "semifinal";
-      else if (actualTeamsInRound === 8) roundName = "quarterfinal";
-      else if (actualTeamsInRound === 16) roundName = "round_of_16";
-      else roundName = "round_of_32";
-      
-      rounds.push({ name: roundName, matchCount: remaining / 2 });
-      remaining = remaining / 2;
-    }
-    rounds.reverse();
+    let roundIndex = 0;
+    let matchCounter = 0;
 
-    // Generate matches for each round
-    let currentRoundPairings = firstRoundMatches;
-    
-    for (let roundIdx = 0; roundIdx < rounds.length; roundIdx++) {
-      const round = rounds[roundIdx];
+    while (remaining > 1) {
+      const roundName = getRoundName(remaining);
+      const round: KORound = {
+        categoryId,
+        categoryName,
+        roundName,
+        roundIndex,
+        pairings: []
+      };
+
       const nextRoundPairings: { home: string | null; away: string | null }[] = [];
 
       for (let i = 0; i < currentRoundPairings.length; i++) {
         const pairing = currentRoundPairings[i];
-        
-        // Check for byes (one team is null)
+
+        // Handle byes
         if (pairing.home === null && pairing.away !== null) {
-          // Away team gets bye
           if (i % 2 === 0) {
             nextRoundPairings.push({ home: pairing.away, away: null });
           } else {
-            const lastIdx = nextRoundPairings.length - 1;
-            nextRoundPairings[lastIdx].away = pairing.away;
+            nextRoundPairings[nextRoundPairings.length - 1].away = pairing.away;
           }
           continue;
         }
         if (pairing.away === null && pairing.home !== null) {
-          // Home team gets bye
           if (i % 2 === 0) {
             nextRoundPairings.push({ home: pairing.home, away: null });
           } else {
-            const lastIdx = nextRoundPairings.length - 1;
-            nextRoundPairings[lastIdx].away = pairing.home;
+            nextRoundPairings[nextRoundPairings.length - 1].away = pairing.home;
           }
           continue;
         }
@@ -232,48 +222,83 @@ export default function MatchScheduleGenerator({ tournamentId }: MatchScheduleGe
           continue;
         }
 
-        // Both teams present - create match
-        matches.push({
-          home_team_id: null,
-          away_team_id: null,
-          group_id: null,
-          scheduled_time: new Date(currentTime),
-          field_number: currentField,
-          match_number: matchNumber,
-          match_type: round.name,
-          homeTeamName: pairing.home!,
-          awayTeamName: pairing.away!,
-          groupName: "",
-          categoryName: `${categoryName} - ${getKORoundName(round.name)}`,
-          home_placeholder: pairing.home!,
-          away_placeholder: pairing.away!
+        // Both teams present - add match to round
+        round.pairings.push({
+          home: pairing.home!,
+          away: pairing.away!,
+          matchIndex: matchCounter++
         });
 
-        const winnerPlaceholder = `Sieger Spiel ${matchNumber}`;
-        
-        // Add to next round
+        // Placeholder for next round (will be updated with actual match number later)
+        const winnerPlaceholder = `__WINNER_${categoryId}_${roundIndex}_${i}__`;
         if (i % 2 === 0) {
           nextRoundPairings.push({ home: winnerPlaceholder, away: null });
         } else {
-          const lastIdx = nextRoundPairings.length - 1;
-          nextRoundPairings[lastIdx].away = winnerPlaceholder;
-        }
-
-        matchNumber++;
-
-        // Move to next field or next time slot
-        currentField++;
-        if (currentField > config.number_of_fields) {
-          currentField = 1;
-          currentTime = addMinutes(
-            currentTime,
-            config.match_duration_minutes + config.ko_break_between_minutes
-          );
+          nextRoundPairings[nextRoundPairings.length - 1].away = winnerPlaceholder;
         }
       }
 
-      // Add break between KO rounds
-      if (roundIdx < rounds.length - 1 && matches.length > 0) {
+      if (round.pairings.length > 0) {
+        rounds.push(round);
+      }
+
+      currentRoundPairings = nextRoundPairings;
+      remaining = remaining / 2;
+      roundIndex++;
+    }
+
+    return { rounds, totalMatches: matchCounter };
+  };
+
+  const generateAllKOMatches = (
+    groupsByCategory: Record<string, { groups: any[]; categoryName: string }>,
+    teamsPerGroupAdvancing: number,
+    startTime: Date,
+    startField: number,
+    startMatchNumber: number,
+    config: ScheduleConfig
+  ): GeneratedMatch[] => {
+    const allMatches: GeneratedMatch[] = [];
+    
+    // Step 1: Generate bracket structure for all categories
+    const categoryBrackets: { categoryId: string; rounds: KORound[] }[] = [];
+    
+    for (const categoryId of Object.keys(groupsByCategory)) {
+      const { groups: categoryGroups, categoryName } = groupsByCategory[categoryId];
+      const numGroupsInCategory = categoryGroups.length;
+      const teamsAdvancing = Math.ceil(teamsPerGroupAdvancing / numGroupsInCategory) * numGroupsInCategory;
+      const actualTeamsPerGroup = Math.ceil(teamsPerGroupAdvancing / numGroupsInCategory);
+      
+      const { rounds } = generateKOBracketStructure(
+        categoryId,
+        categoryName,
+        categoryGroups,
+        actualTeamsPerGroup
+      );
+      
+      if (rounds.length > 0) {
+        categoryBrackets.push({ categoryId, rounds });
+      }
+    }
+
+    if (categoryBrackets.length === 0) {
+      return [];
+    }
+
+    // Step 2: Find the maximum number of rounds across all categories
+    const maxRounds = Math.max(...categoryBrackets.map(cb => cb.rounds.length));
+
+    // Step 3: Schedule round by round, all categories for each round
+    let currentTime = new Date(startTime);
+    let currentField = startField;
+    let matchNumber = startMatchNumber;
+    
+    // Map to track match numbers for winner placeholders
+    const matchNumberMap: Record<string, number> = {};
+
+    for (let roundIdx = 0; roundIdx < maxRounds; roundIdx++) {
+      // Add break between rounds (except before first round)
+      if (roundIdx > 0) {
         if (currentField !== 1) {
           currentField = 1;
           currentTime = addMinutes(currentTime, config.match_duration_minutes);
@@ -281,10 +306,78 @@ export default function MatchScheduleGenerator({ tournamentId }: MatchScheduleGe
         currentTime = addMinutes(currentTime, config.ko_break_between_minutes);
       }
 
-      currentRoundPairings = nextRoundPairings;
+      // Schedule all categories for this round
+      for (const { categoryId, rounds } of categoryBrackets) {
+        // Find the corresponding round for this category
+        // Categories with fewer rounds should skip early rounds
+        const categoryMaxRounds = rounds.length;
+        const roundOffset = maxRounds - categoryMaxRounds;
+        const categoryRoundIdx = roundIdx - roundOffset;
+
+        if (categoryRoundIdx < 0 || categoryRoundIdx >= rounds.length) {
+          continue;
+        }
+
+        const round = rounds[categoryRoundIdx];
+
+        for (const pairing of round.pairings) {
+          // Replace winner placeholders with actual match numbers
+          let homeName = pairing.home;
+          let awayName = pairing.away;
+
+          if (homeName.startsWith("__WINNER_")) {
+            const key = homeName;
+            if (matchNumberMap[key]) {
+              homeName = `Sieger Spiel ${matchNumberMap[key]}`;
+            }
+          }
+          if (awayName.startsWith("__WINNER_")) {
+            const key = awayName;
+            if (matchNumberMap[key]) {
+              awayName = `Sieger Spiel ${matchNumberMap[key]}`;
+            }
+          }
+
+          // Store this match number for future winner references
+          const winnerKey = `__WINNER_${categoryId}_${categoryRoundIdx}_${Math.floor(round.pairings.indexOf(pairing) / 1)}__`;
+          
+          allMatches.push({
+            home_team_id: null,
+            away_team_id: null,
+            group_id: null,
+            scheduled_time: new Date(currentTime),
+            field_number: currentField,
+            match_number: matchNumber,
+            match_type: round.roundName,
+            homeTeamName: homeName,
+            awayTeamName: awayName,
+            groupName: "",
+            categoryName: `${round.categoryName} - ${getKORoundName(round.roundName)}`,
+            home_placeholder: homeName,
+            away_placeholder: awayName
+          });
+
+          // Store match number for winner placeholder lookups
+          // The key pattern needs to match what was generated in generateKOBracketStructure
+          const originalPairingIndex = round.pairings.indexOf(pairing);
+          // We need to figure out the original 'i' value from generateKOBracketStructure
+          // This is complex, so let's use a simpler approach
+          matchNumberMap[`__WINNER_${categoryId}_${categoryRoundIdx}_${originalPairingIndex}__`] = matchNumber;
+
+          matchNumber++;
+          currentField++;
+          if (currentField > config.number_of_fields) {
+            currentField = 1;
+            currentTime = addMinutes(
+              currentTime,
+              config.match_duration_minutes + config.ko_break_between_minutes
+            );
+          }
+        }
+      }
     }
 
-    return { matches, endTime: currentTime, endField: currentField, endMatchNumber: matchNumber };
+    return allMatches;
   };
 
   const getKORoundName = (roundType: string): string => {
@@ -467,34 +560,19 @@ export default function MatchScheduleGenerator({ tournamentId }: MatchScheduleGe
           groupsByCategory[categoryId].groups.push(group);
         }
 
-        // Calculate teams per group that advance (ko_phase_teams is total per category)
-        // We need to determine how many from each group advance
-        for (const categoryId of Object.keys(groupsByCategory)) {
-          const { groups: categoryGroups, categoryName } = groupsByCategory[categoryId];
-          const numGroupsInCategory = categoryGroups.length;
-          
-          // Teams per group advancing = ko_phase_teams / number of groups (rounded)
-          const teamsPerGroupAdvancing = Math.ceil(scheduleConfig.ko_phase_teams / numGroupsInCategory);
-          
-          const result = generateKOMatchesForCategory(
-            categoryGroups,
-            teamsPerGroupAdvancing,
-            categoryName,
-            currentTime,
-            currentField,
-            matchNumber,
-            scheduleConfig
-          );
-          
-          generatedMatches.push(...result.matches);
-          currentTime = result.endTime;
-          currentField = result.endField;
-          matchNumber = result.endMatchNumber;
-          
-          // Add break between categories
-          if (result.matches.length > 0) {
-            currentTime = addMinutes(currentTime, scheduleConfig.ko_break_between_minutes);
-          }
+        // Generate all KO matches across categories, round by round
+        const koMatches = generateAllKOMatches(
+          groupsByCategory,
+          scheduleConfig.ko_phase_teams,
+          currentTime,
+          currentField,
+          matchNumber,
+          scheduleConfig
+        );
+        
+        generatedMatches.push(...koMatches);
+        if (koMatches.length > 0) {
+          matchNumber += koMatches.length;
         }
       }
 
