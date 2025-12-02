@@ -10,6 +10,8 @@ import { toast } from "sonner";
 import SimplifiedNavigation from "@/components/SimplifiedNavigation";
 import ModernFooter from "@/components/ModernFooter";
 import TeamRegistrationForm from "@/components/tournament/TeamRegistrationForm";
+import MatchList from "@/components/tournament/MatchList";
+import StandingsTable from "@/components/tournament/StandingsTable";
 
 interface Tournament {
   id: string;
@@ -357,9 +359,15 @@ const PublicTournamentDetail = () => {
                 </TabsList>
                 {categories.map((category) => (
                   <TabsContent key={category.id} value={category.id} className="mt-6">
-                    <div className="text-center py-12 text-muted-foreground">
-                      <p className="text-lg mb-2">Spielpläne werden bald verfügbar sein</p>
-                      <p className="text-sm">Der Spielplan für {category.name} wird nach Anmeldeschluss veröffentlicht</p>
+                    <div className="space-y-8">
+                      <div>
+                        <h3 className="text-xl font-semibold mb-4">Tabelle</h3>
+                        <StandingsTable tournamentId={id!} categoryId={category.id} />
+                      </div>
+                      <div>
+                        <h3 className="text-xl font-semibold mb-4">Spielplan</h3>
+                        <MatchList tournamentId={id!} categoryId={category.id} isAdmin={false} />
+                      </div>
                     </div>
                   </TabsContent>
                 ))}

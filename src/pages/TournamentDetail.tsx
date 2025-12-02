@@ -18,6 +18,8 @@ import TournamentSettings from "@/components/tournament/TournamentSettings";
 import ScheduleConfig from "@/components/tournament/ScheduleConfig";
 import GroupManagement from "@/components/tournament/GroupManagement";
 import MatchScheduleGenerator from "@/components/tournament/MatchScheduleGenerator";
+import MatchList from "@/components/tournament/MatchList";
+import StandingsTable from "@/components/tournament/StandingsTable";
 
 interface Tournament {
   id: string;
@@ -582,6 +584,40 @@ const TournamentDetail = () => {
 
               <TabsContent value="matches" className="space-y-6 mt-6">
                 <MatchScheduleGenerator tournamentId={id!} />
+                
+                {categories.length > 0 && (
+                  <Card className="mt-6">
+                    <CardHeader>
+                      <CardTitle>Spielpläne & Resultate</CardTitle>
+                      <CardDescription>
+                        Verwalten Sie Spielpläne und erfassen Sie Resultate
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <Tabs defaultValue={categories[0]?.id || ""}>
+                        <TabsList className="grid w-full" style={{ gridTemplateColumns: `repeat(${categories.length}, minmax(0, 1fr))` }}>
+                          {categories.map((category) => (
+                            <TabsTrigger key={category.id} value={category.id}>
+                              {category.name}
+                            </TabsTrigger>
+                          ))}
+                        </TabsList>
+                        {categories.map((category) => (
+                          <TabsContent key={category.id} value={category.id} className="mt-6 space-y-8">
+                            <div>
+                              <h3 className="text-xl font-semibold mb-4">Tabelle</h3>
+                              <StandingsTable tournamentId={id!} categoryId={category.id} />
+                            </div>
+                            <div>
+                              <h3 className="text-xl font-semibold mb-4">Spielplan & Resultate</h3>
+                              <MatchList tournamentId={id!} categoryId={category.id} isAdmin={true} />
+                            </div>
+                          </TabsContent>
+                        ))}
+                      </Tabs>
+                    </CardContent>
+                  </Card>
+                )}
               </TabsContent>
             </Tabs>
           </TabsContent>
