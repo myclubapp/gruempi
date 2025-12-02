@@ -208,27 +208,40 @@ export default function ScheduleConfig({ tournamentId }: ScheduleConfigProps) {
             KO-Phase
           </CardTitle>
           <CardDescription>
-            Definiere, wie viele Teams in die KO-Phase kommen
+            Definiere, wie viele Teams in die KO-Phase kommen. Bei ungeraden Zahlen erhalten die besten Gruppensieger ein Freilos.
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="space-y-2">
-            <Label htmlFor="ko_phase">KO-Phase Teilnehmer</Label>
-            <Select
-              value={config.ko_phase_teams.toString()}
-              onValueChange={(value) => setConfig({ ...config, ko_phase_teams: parseInt(value) })}
-            >
-              <SelectTrigger id="ko_phase">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {koPhaseOptions.map((option) => (
-                  <SelectItem key={option.value} value={option.value.toString()}>
-                    {option.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="ko_phase">KO-Phase Teilnehmer</Label>
+              <Select
+                value={config.ko_phase_teams.toString()}
+                onValueChange={(value) => setConfig({ ...config, ko_phase_teams: parseInt(value) })}
+              >
+                <SelectTrigger id="ko_phase">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {koPhaseOptions.map((option) => (
+                    <SelectItem key={option.value} value={option.value.toString()}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            {config.ko_phase_teams > 0 && (
+              <div className="p-4 bg-muted rounded-lg text-sm space-y-2">
+                <p className="font-medium">Hinweis zur KO-Phase:</p>
+                <ul className="list-disc list-inside space-y-1 text-muted-foreground">
+                  <li>Die besten Teams aus allen Gruppen kommen weiter</li>
+                  <li>Bei 6 Teams (Viertelfinale): 2 beste Teams erhalten Freilos, 4 Teams spielen Viertelfinale</li>
+                  <li>Bei 12 Teams (Achtelfinale): 4 beste Teams erhalten Freilos, 8 Teams spielen Achtelfinale</li>
+                  <li>Sortierung: Punkte → Tordifferenz → Erzielte Tore (gemäss Ranglisten-Modus)</li>
+                </ul>
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>
