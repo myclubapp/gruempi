@@ -388,12 +388,12 @@ const TournamentDetail = () => {
 
         <Tabs defaultValue="overview" className="space-y-6">
           <TabsList className="grid w-full grid-cols-7">
-            <TabsTrigger value="overview">Übersicht</TabsTrigger>
-            <TabsTrigger value="teams">Teams</TabsTrigger>
+            <TabsTrigger value="overview">Allgemeine Infos</TabsTrigger>
             <TabsTrigger value="categories">Kategorien</TabsTrigger>
             <TabsTrigger value="groups">Gruppen</TabsTrigger>
+            <TabsTrigger value="teams">Teams</TabsTrigger>
             <TabsTrigger value="schedule">Spielplan</TabsTrigger>
-            <TabsTrigger value="payment">Zahlungen</TabsTrigger>
+            <TabsTrigger value="payment">Finanzen</TabsTrigger>
             <TabsTrigger value="settings">Einstellungen</TabsTrigger>
           </TabsList>
 

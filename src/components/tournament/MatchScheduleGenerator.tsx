@@ -564,12 +564,16 @@ export default function MatchScheduleGenerator({ tournamentId }: MatchScheduleGe
 
       // Generate KO phase matches if configured
       if (scheduleConfig.ko_phase_teams > 0) {
-        // Add break before KO phase
-        if (currentField !== 1) {
-          currentField = 1;
-          currentTime = addMinutes(currentTime, scheduleConfig.match_duration_minutes);
-        }
-        currentTime = addMinutes(currentTime, scheduleConfig.ko_break_before_minutes);
+        // Calculate KO start time based on when the last group match ends
+        // Avoid double-adding breaks by using the last match end time directly
+        const lastGroupMatch = generatedMatches[generatedMatches.length - 1];
+        const lastGroupMatchEnd = lastGroupMatch 
+          ? addMinutes(lastGroupMatch.scheduled_time, scheduleConfig.match_duration_minutes)
+          : currentTime;
+        
+        // KO phase starts after the ko_break_before_minutes pause
+        currentTime = addMinutes(lastGroupMatchEnd, scheduleConfig.ko_break_before_minutes);
+        currentField = 1;
 
         // Group groups by category
         const groupsByCategory: Record<string, { groups: any[]; categoryName: string }> = {};

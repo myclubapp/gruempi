@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
-import { Calendar, MapPin } from "lucide-react";
+import { Calendar, MapPin, Clock, Check, X } from "lucide-react";
 
 interface Match {
   id: string;
@@ -18,6 +18,9 @@ interface Match {
   field_number: number | null;
   status: string;
   group_id: string | null;
+  match_type: string;
+  home_placeholder: string | null;
+  away_placeholder: string | null;
 }
 
 interface Team {
@@ -37,6 +40,8 @@ const MatchList = ({ tournamentId, categoryId, isAdmin = false }: MatchListProps
   const [groups, setGroups] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [editingScores, setEditingScores] = useState<Record<string, { home: string; away: string }>>({});
+  const [editingTime, setEditingTime] = useState<string | null>(null);
+  const [newTime, setNewTime] = useState<string>("");
 
   useEffect(() => {
     loadData();
@@ -136,6 +141,41 @@ const MatchList = ({ tournamentId, categoryId, isAdmin = false }: MatchListProps
     }
   };
 
+  const handleStartEditTime = (matchId: string, currentTime: string) => {
+    const date = new Date(currentTime);
+    const timeStr = date.toLocaleTimeString("de-CH", { hour: "2-digit", minute: "2-digit" });
+    setEditingTime(matchId);
+    setNewTime(timeStr);
+  };
+
+  const handleSaveTime = async (matchId: string, currentScheduledTime: string) => {
+    if (!newTime) return;
+
+    // Parse the new time and combine with existing date
+    const [hours, minutes] = newTime.split(":").map(Number);
+    const existingDate = new Date(currentScheduledTime);
+    existingDate.setHours(hours, minutes, 0, 0);
+
+    const { error } = await supabase
+      .from("matches")
+      .update({ scheduled_time: existingDate.toISOString() })
+      .eq("id", matchId);
+
+    if (error) {
+      toast.error("Fehler beim Speichern der Spielzeit");
+    } else {
+      toast.success("Spielzeit aktualisiert");
+      setEditingTime(null);
+      setNewTime("");
+      loadData();
+    }
+  };
+
+  const handleCancelEditTime = () => {
+    setEditingTime(null);
+    setNewTime("");
+  };
+
   const getGroupName = (groupId: string | null) => {
     if (!groupId) return "";
     const group = groups.find(g => g.id === groupId);
@@ -181,6 +221,7 @@ const MatchList = ({ tournamentId, categoryId, isAdmin = false }: MatchListProps
               const homeTeam = teams[match.home_team_id];
               const awayTeam = teams[match.away_team_id];
               const isEditing = editingScores[match.id];
+              const isEditingThisTime = editingTime === match.id;
 
               return (
                 <div
@@ -189,15 +230,49 @@ const MatchList = ({ tournamentId, categoryId, isAdmin = false }: MatchListProps
                 >
                   <div className="flex-1">
                     <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
-                      <Calendar className="w-4 h-4" />
-                      <span>
-                        {new Date(match.scheduled_time).toLocaleString("de-CH", {
-                          day: "2-digit",
-                          month: "2-digit",
-                          hour: "2-digit",
-                          minute: "2-digit"
-                        })}
-                      </span>
+                      {isAdmin && isEditingThisTime ? (
+                        <div className="flex items-center gap-2">
+                          <Clock className="w-4 h-4" />
+                          <Input
+                            type="time"
+                            value={newTime}
+                            onChange={(e) => setNewTime(e.target.value)}
+                            className="w-24 h-7 text-sm"
+                          />
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-7 w-7"
+                            onClick={() => handleSaveTime(match.id, match.scheduled_time)}
+                          >
+                            <Check className="w-4 h-4 text-green-600" />
+                          </Button>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-7 w-7"
+                            onClick={handleCancelEditTime}
+                          >
+                            <X className="w-4 h-4 text-red-600" />
+                          </Button>
+                        </div>
+                      ) : (
+                        <>
+                          <Calendar className="w-4 h-4" />
+                          <span
+                            className={isAdmin ? "cursor-pointer hover:underline" : ""}
+                            onClick={() => isAdmin && handleStartEditTime(match.id, match.scheduled_time)}
+                            title={isAdmin ? "Klicken zum Bearbeiten" : ""}
+                          >
+                            {new Date(match.scheduled_time).toLocaleString("de-CH", {
+                              day: "2-digit",
+                              month: "2-digit",
+                              hour: "2-digit",
+                              minute: "2-digit"
+                            })}
+                          </span>
+                        </>
+                      )}
                       {match.field_number && (
                         <>
                           <MapPin className="w-4 h-4 ml-2" />
@@ -211,7 +286,7 @@ const MatchList = ({ tournamentId, categoryId, isAdmin = false }: MatchListProps
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-4 flex-1">
                         <span className="font-semibold min-w-[120px]">
-                          {homeTeam?.name || "Team nicht gefunden"}
+                          {homeTeam?.name || match.home_placeholder || "Team nicht gefunden"}
                         </span>
                         {isAdmin ? (
                           <div className="flex items-center gap-2">
@@ -239,7 +314,7 @@ const MatchList = ({ tournamentId, categoryId, isAdmin = false }: MatchListProps
                           </div>
                         )}
                         <span className="font-semibold min-w-[120px]">
-                          {awayTeam?.name || "Team nicht gefunden"}
+                          {awayTeam?.name || match.away_placeholder || "Team nicht gefunden"}
                         </span>
                       </div>
                       {isAdmin && isEditing && (
