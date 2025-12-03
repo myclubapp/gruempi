@@ -16,7 +16,8 @@ import PaymentSettings from "@/components/tournament/PaymentSettings";
 import DashboardLayout from "@/components/DashboardLayout";
 
 import TournamentSettings from "@/components/tournament/TournamentSettings";
-import TournamentCategoriesRules from "@/components/tournament/TournamentCategoriesRules";
+import TournamentCategories from "@/components/tournament/TournamentCategories";
+import TournamentRules from "@/components/tournament/TournamentRules";
 import ScheduleConfig from "@/components/tournament/ScheduleConfig";
 import GroupManagement from "@/components/tournament/GroupManagement";
 import MatchScheduleGenerator from "@/components/tournament/MatchScheduleGenerator";
@@ -432,15 +433,21 @@ const TournamentDetail = () => {
               </Card>
             )}
 
-            {/* Tournament Settings (moved from settings tab) */}
+            {/* Tournament Settings */}
             <TournamentSettings
+              tournament={tournament}
+              onUpdate={loadTournament}
+            />
+
+            {/* Rules and Terms */}
+            <TournamentRules
               tournament={tournament}
               onUpdate={loadTournament}
             />
           </TabsContent>
 
           <TabsContent value="categories">
-            <TournamentCategoriesRules
+            <TournamentCategories
               tournament={tournament}
               onUpdate={loadTournament}
             />
