@@ -129,7 +129,7 @@ export default function MatchScheduleGenerator({ tournamentId }: MatchScheduleGe
     categoryName: string;
     roundName: string;
     roundIndex: number;
-    pairings: { home: string; away: string; matchIndex: number }[];
+    pairings: { home: string; away: string; matchIndex: number; bracketPosIndex: number }[];
   }
 
   const generateKOBracketStructure = (
@@ -246,7 +246,8 @@ export default function MatchScheduleGenerator({ tournamentId }: MatchScheduleGe
         round.pairings.push({
           home: pairing.home!,
           away: pairing.away!,
-          matchIndex: matchCounter++
+          matchIndex: matchCounter++,
+          bracketPosIndex: i  // Store the original bracket position for winner placeholder lookup
         });
 
         // Placeholder for next round
@@ -334,7 +335,7 @@ export default function MatchScheduleGenerator({ tournamentId }: MatchScheduleGe
         categoryId: string; 
         categoryRoundIdx: number;
         round: KORound; 
-        pairing: { home: string; away: string; matchIndex: number };
+        pairing: { home: string; away: string; matchIndex: number; bracketPosIndex: number };
         hasWinnerPlaceholder: boolean;
       }[] = [];
 
@@ -383,12 +384,18 @@ export default function MatchScheduleGenerator({ tournamentId }: MatchScheduleGe
           const key = homeName;
           if (matchNumberMap[key]) {
             homeName = `Sieger Spiel ${matchNumberMap[key]}`;
+          } else {
+            // Fallback: show generic winner text if match number not found yet
+            homeName = "Sieger Vorrunde";
           }
         }
         if (awayName.startsWith("__WINNER_")) {
           const key = awayName;
           if (matchNumberMap[key]) {
             awayName = `Sieger Spiel ${matchNumberMap[key]}`;
+          } else {
+            // Fallback: show generic winner text if match number not found yet
+            awayName = "Sieger Vorrunde";
           }
         }
 
@@ -408,9 +415,8 @@ export default function MatchScheduleGenerator({ tournamentId }: MatchScheduleGe
           away_placeholder: awayName
         });
 
-        // Store match number for winner placeholder lookups
-        const originalPairingIndex = round.pairings.indexOf(pairing);
-        matchNumberMap[`__WINNER_${categoryId}_${categoryRoundIdx}_${originalPairingIndex}__`] = matchNumber;
+        // Store match number for winner placeholder lookups using bracketPosIndex
+        matchNumberMap[`__WINNER_${categoryId}_${categoryRoundIdx}_${pairing.bracketPosIndex}__`] = matchNumber;
 
         matchNumber++;
         currentField++;
