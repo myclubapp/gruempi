@@ -131,21 +131,33 @@ const TournamentCockpit = () => {
     setLoading(false);
   };
 
-  // Update score only (without changing status)
-  const updateScore = async (matchId: string, homeScore: number, awayScore: number) => {
-    const { error } = await supabase
+  // Update score locally (optimistic update) and persist to database
+  const updateScoreLocally = (matchId: string, homeScore: number, awayScore: number) => {
+    // Update local state immediately for responsive UI
+    setRounds(prevRounds => 
+      prevRounds.map(round => 
+        round.map(match => 
+          match.id === matchId 
+            ? { ...match, home_score: homeScore, away_score: awayScore }
+            : match
+        )
+      )
+    );
+
+    // Persist to database in background
+    supabase
       .from("matches")
       .update({
         home_score: homeScore,
         away_score: awayScore,
       })
-      .eq("id", matchId);
-
-    if (error) {
-      toast.error("Fehler beim Speichern");
-    } else {
-      loadData();
-    }
+      .eq("id", matchId)
+      .then(({ error }) => {
+        if (error) {
+          toast.error("Fehler beim Speichern");
+          loadData(); // Reload on error to sync state
+        }
+      });
   };
 
   // Confirm result and mark match as completed
@@ -186,9 +198,9 @@ const TournamentCockpit = () => {
     const currentAway = match.away_score ?? 0;
     
     if (team === 'home') {
-      updateScore(match.id, currentHome + 1, currentAway);
+      updateScoreLocally(match.id, currentHome + 1, currentAway);
     } else {
-      updateScore(match.id, currentHome, currentAway + 1);
+      updateScoreLocally(match.id, currentHome, currentAway + 1);
     }
   };
 
@@ -197,9 +209,9 @@ const TournamentCockpit = () => {
     const currentAway = match.away_score ?? 0;
     
     if (team === 'home' && currentHome > 0) {
-      updateScore(match.id, currentHome - 1, currentAway);
+      updateScoreLocally(match.id, currentHome - 1, currentAway);
     } else if (team === 'away' && currentAway > 0) {
-      updateScore(match.id, currentHome, currentAway - 1);
+      updateScoreLocally(match.id, currentHome, currentAway - 1);
     }
   };
 
