@@ -386,9 +386,10 @@ const TournamentDetail = () => {
       </div>
 
         <Tabs defaultValue="overview" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-6">
+          <TabsList className="grid w-full grid-cols-7">
             <TabsTrigger value="overview">Übersicht</TabsTrigger>
             <TabsTrigger value="teams">Teams</TabsTrigger>
+            <TabsTrigger value="categories">Kategorien</TabsTrigger>
             <TabsTrigger value="groups">Gruppen</TabsTrigger>
             <TabsTrigger value="schedule">Spielplan</TabsTrigger>
             <TabsTrigger value="payment">Zahlungen</TabsTrigger>
@@ -436,8 +437,9 @@ const TournamentDetail = () => {
               tournament={tournament}
               onUpdate={loadTournament}
             />
+          </TabsContent>
 
-            {/* Categories and Rules */}
+          <TabsContent value="categories">
             <TournamentCategoriesRules
               tournament={tournament}
               onUpdate={loadTournament}
