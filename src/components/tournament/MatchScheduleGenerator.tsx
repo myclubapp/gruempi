@@ -145,8 +145,8 @@ export default function MatchScheduleGenerator({ tournamentId }: MatchScheduleGe
       return { rounds: [], totalMatches: 0 };
     }
 
-    // Create list of all qualifiers in seeded order
-    // 1. Gruppe A, 1. Gruppe B, ..., 2. Gruppe A, 2. Gruppe B, ...
+    // Create list of all qualifiers in seeded order (Swiss ranking)
+    // First: all 1st place teams, then all 2nd place teams, etc.
     const qualifiers: string[] = [];
     for (let pos = 1; pos <= teamsPerGroupAdvancing; pos++) {
       for (let g = 0; g < numGroups; g++) {
@@ -156,19 +156,32 @@ export default function MatchScheduleGenerator({ tournamentId }: MatchScheduleGe
     }
 
     // Calculate bracket size (next power of 2)
-    const nextPowerOf2 = Math.pow(2, Math.ceil(Math.log2(totalQualifyingTeams)));
-    const bracketSize = nextPowerOf2;
+    const bracketSize = Math.pow(2, Math.ceil(Math.log2(totalQualifyingTeams)));
+    const numByes = bracketSize - totalQualifyingTeams;
 
-    // Generate first round pairings with proper seeding (1 vs n, 2 vs n-1, etc.)
-    let currentRoundPairings: { home: string | null; away: string | null }[] = [];
+    // Generate proper bracket positions
+    // Standard tournament seeding: 1 vs n, 2 vs n-1, etc. within bracket positions
+    // Use recursive bracket position generation for proper structure
+    const getBracketPositions = (size: number): number[] => {
+      if (size === 1) return [1];
+      const smaller = getBracketPositions(size / 2);
+      return smaller.flatMap(pos => [pos, size + 1 - pos]);
+    };
+
+    const bracketPositions = getBracketPositions(bracketSize);
+    
+    // Create first round pairings based on bracket positions
+    // Seeds 1 to totalQualifyingTeams are actual teams, rest are byes
+    let currentRoundPairings: { home: string | null; away: string | null; bracketPos: number }[] = [];
+    
     for (let i = 0; i < bracketSize / 2; i++) {
-      const seed1 = i + 1;
-      const seed2 = bracketSize - i;
+      const pos1 = bracketPositions[i * 2];
+      const pos2 = bracketPositions[i * 2 + 1];
       
-      const home = seed1 <= totalQualifyingTeams ? qualifiers[seed1 - 1] : null;
-      const away = seed2 <= totalQualifyingTeams ? qualifiers[seed2 - 1] : null;
+      const home = pos1 <= totalQualifyingTeams ? qualifiers[pos1 - 1] : null;
+      const away = pos2 <= totalQualifyingTeams ? qualifiers[pos2 - 1] : null;
       
-      currentRoundPairings.push({ home, away });
+      currentRoundPairings.push({ home, away, bracketPos: i });
     }
 
     // Calculate round names
@@ -196,25 +209,32 @@ export default function MatchScheduleGenerator({ tournamentId }: MatchScheduleGe
         pairings: []
       };
 
-      const nextRoundPairings: { home: string | null; away: string | null }[] = [];
+      const nextRoundPairings: { home: string | null; away: string | null; bracketPos: number }[] = [];
 
       for (let i = 0; i < currentRoundPairings.length; i++) {
         const pairing = currentRoundPairings[i];
+        const nextBracketPos = Math.floor(i / 2);
 
-        // Handle byes
+        // Handle byes - advance the non-null team to next round
         if (pairing.home === null && pairing.away !== null) {
+          // Away team advances via bye
           if (i % 2 === 0) {
-            nextRoundPairings.push({ home: pairing.away, away: null });
+            nextRoundPairings.push({ home: pairing.away, away: null, bracketPos: nextBracketPos });
           } else {
-            nextRoundPairings[nextRoundPairings.length - 1].away = pairing.away;
+            if (nextRoundPairings[nextRoundPairings.length - 1]) {
+              nextRoundPairings[nextRoundPairings.length - 1].away = pairing.away;
+            }
           }
           continue;
         }
         if (pairing.away === null && pairing.home !== null) {
+          // Home team advances via bye
           if (i % 2 === 0) {
-            nextRoundPairings.push({ home: pairing.home, away: null });
+            nextRoundPairings.push({ home: pairing.home, away: null, bracketPos: nextBracketPos });
           } else {
-            nextRoundPairings[nextRoundPairings.length - 1].away = pairing.home;
+            if (nextRoundPairings[nextRoundPairings.length - 1]) {
+              nextRoundPairings[nextRoundPairings.length - 1].away = pairing.home;
+            }
           }
           continue;
         }
@@ -229,12 +249,14 @@ export default function MatchScheduleGenerator({ tournamentId }: MatchScheduleGe
           matchIndex: matchCounter++
         });
 
-        // Placeholder for next round (will be updated with actual match number later)
+        // Placeholder for next round
         const winnerPlaceholder = `__WINNER_${categoryId}_${roundIndex}_${i}__`;
         if (i % 2 === 0) {
-          nextRoundPairings.push({ home: winnerPlaceholder, away: null });
+          nextRoundPairings.push({ home: winnerPlaceholder, away: null, bracketPos: nextBracketPos });
         } else {
-          nextRoundPairings[nextRoundPairings.length - 1].away = winnerPlaceholder;
+          if (nextRoundPairings[nextRoundPairings.length - 1]) {
+            nextRoundPairings[nextRoundPairings.length - 1].away = winnerPlaceholder;
+          }
         }
       }
 
