@@ -366,9 +366,15 @@ export default function MatchScheduleGenerator({ tournamentId }: MatchScheduleGe
         }
       }
 
-      // Sort pairings: matches WITHOUT winner placeholders first (teams have rest)
+      // Sort pairings: within each category, matches WITHOUT winner placeholders first (teams have rest)
       // matches WITH winner placeholders last (to give those teams a break)
+      // First group by category, then sort within category
       allRoundPairings.sort((a, b) => {
+        // First, maintain category order
+        if (a.categoryId !== b.categoryId) {
+          return 0; // Keep original category order
+        }
+        // Within the same category: non-winner matches first
         if (a.hasWinnerPlaceholder && !b.hasWinnerPlaceholder) return 1;
         if (!a.hasWinnerPlaceholder && b.hasWinnerPlaceholder) return -1;
         return 0;
