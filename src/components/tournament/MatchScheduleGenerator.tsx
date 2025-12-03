@@ -329,6 +329,15 @@ export default function MatchScheduleGenerator({ tournamentId }: MatchScheduleGe
       }
 
       // Schedule all categories for this round
+      // Collect all pairings first, then sort to prioritize rest for teams from previous round
+      const allRoundPairings: { 
+        categoryId: string; 
+        categoryRoundIdx: number;
+        round: KORound; 
+        pairing: { home: string; away: string; matchIndex: number };
+        hasWinnerPlaceholder: boolean;
+      }[] = [];
+
       for (const { categoryId, rounds } of categoryBrackets) {
         // Find the corresponding round for this category
         // Categories with fewer rounds should skip early rounds
@@ -343,58 +352,74 @@ export default function MatchScheduleGenerator({ tournamentId }: MatchScheduleGe
         const round = rounds[categoryRoundIdx];
 
         for (const pairing of round.pairings) {
-          // Replace winner placeholders with actual match numbers
-          let homeName = pairing.home;
-          let awayName = pairing.away;
-
-          if (homeName.startsWith("__WINNER_")) {
-            const key = homeName;
-            if (matchNumberMap[key]) {
-              homeName = `Sieger Spiel ${matchNumberMap[key]}`;
-            }
-          }
-          if (awayName.startsWith("__WINNER_")) {
-            const key = awayName;
-            if (matchNumberMap[key]) {
-              awayName = `Sieger Spiel ${matchNumberMap[key]}`;
-            }
-          }
-
-          // Store this match number for future winner references
-          const winnerKey = `__WINNER_${categoryId}_${categoryRoundIdx}_${Math.floor(round.pairings.indexOf(pairing) / 1)}__`;
+          // Check if this pairing involves a winner from previous round
+          const hasWinnerPlaceholder = pairing.home.startsWith("__WINNER_") || pairing.away.startsWith("__WINNER_");
           
-          allMatches.push({
-            home_team_id: null,
-            away_team_id: null,
-            group_id: null,
-            scheduled_time: new Date(currentTime),
-            field_number: currentField,
-            match_number: matchNumber,
-            match_type: round.roundName,
-            homeTeamName: homeName,
-            awayTeamName: awayName,
-            groupName: "",
-            categoryName: `${round.categoryName} - ${getKORoundName(round.roundName)}`,
-            home_placeholder: homeName,
-            away_placeholder: awayName
+          allRoundPairings.push({
+            categoryId,
+            categoryRoundIdx,
+            round,
+            pairing,
+            hasWinnerPlaceholder
           });
+        }
+      }
 
-          // Store match number for winner placeholder lookups
-          // The key pattern needs to match what was generated in generateKOBracketStructure
-          const originalPairingIndex = round.pairings.indexOf(pairing);
-          // We need to figure out the original 'i' value from generateKOBracketStructure
-          // This is complex, so let's use a simpler approach
-          matchNumberMap[`__WINNER_${categoryId}_${categoryRoundIdx}_${originalPairingIndex}__`] = matchNumber;
+      // Sort pairings: matches WITHOUT winner placeholders first (teams have rest)
+      // matches WITH winner placeholders last (to give those teams a break)
+      allRoundPairings.sort((a, b) => {
+        if (a.hasWinnerPlaceholder && !b.hasWinnerPlaceholder) return 1;
+        if (!a.hasWinnerPlaceholder && b.hasWinnerPlaceholder) return -1;
+        return 0;
+      });
 
-          matchNumber++;
-          currentField++;
-          if (currentField > config.number_of_fields) {
-            currentField = 1;
-            currentTime = addMinutes(
-              currentTime,
-              config.match_duration_minutes + config.ko_break_between_minutes
-            );
+      // Now schedule the sorted pairings
+      for (const { categoryId, categoryRoundIdx, round, pairing } of allRoundPairings) {
+        // Replace winner placeholders with actual match numbers
+        let homeName = pairing.home;
+        let awayName = pairing.away;
+
+        if (homeName.startsWith("__WINNER_")) {
+          const key = homeName;
+          if (matchNumberMap[key]) {
+            homeName = `Sieger Spiel ${matchNumberMap[key]}`;
           }
+        }
+        if (awayName.startsWith("__WINNER_")) {
+          const key = awayName;
+          if (matchNumberMap[key]) {
+            awayName = `Sieger Spiel ${matchNumberMap[key]}`;
+          }
+        }
+
+        allMatches.push({
+          home_team_id: null,
+          away_team_id: null,
+          group_id: null,
+          scheduled_time: new Date(currentTime),
+          field_number: currentField,
+          match_number: matchNumber,
+          match_type: round.roundName,
+          homeTeamName: homeName,
+          awayTeamName: awayName,
+          groupName: "",
+          categoryName: `${round.categoryName} - ${getKORoundName(round.roundName)}`,
+          home_placeholder: homeName,
+          away_placeholder: awayName
+        });
+
+        // Store match number for winner placeholder lookups
+        const originalPairingIndex = round.pairings.indexOf(pairing);
+        matchNumberMap[`__WINNER_${categoryId}_${categoryRoundIdx}_${originalPairingIndex}__`] = matchNumber;
+
+        matchNumber++;
+        currentField++;
+        if (currentField > config.number_of_fields) {
+          currentField = 1;
+          currentTime = addMinutes(
+            currentTime,
+            config.match_duration_minutes + config.ko_break_between_minutes
+          );
         }
       }
     }
