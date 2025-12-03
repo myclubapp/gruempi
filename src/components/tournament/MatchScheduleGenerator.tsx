@@ -1,13 +1,13 @@
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Calendar, Play, AlertCircle } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { format, addMinutes, parse } from "date-fns";
 import { de } from "date-fns/locale";
+import ScheduleEditor from "./ScheduleEditor";
 
 interface MatchScheduleGeneratorProps {
   tournamentId: string;
@@ -60,6 +60,7 @@ export default function MatchScheduleGenerator({ tournamentId }: MatchScheduleGe
   const [scheduleConfig, setScheduleConfig] = useState<ScheduleConfig | null>(null);
   const [previewMatches, setPreviewMatches] = useState<GeneratedMatch[]>([]);
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
+  const [isSaved, setIsSaved] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -462,6 +463,7 @@ export default function MatchScheduleGenerator({ tournamentId }: MatchScheduleGe
     }
 
     setLoading(true);
+    setIsSaved(false);
     setValidationErrors([]);
 
     try {
@@ -686,7 +688,18 @@ export default function MatchScheduleGenerator({ tournamentId }: MatchScheduleGe
 
     setLoading(true);
     try {
-      // Insert new matches
+      // If already saved, update existing matches
+      if (isSaved) {
+        // Delete existing matches first, then insert updated ones
+        const { error: deleteError } = await supabase
+          .from("matches")
+          .delete()
+          .eq("tournament_id", tournamentId);
+        
+        if (deleteError) throw deleteError;
+      }
+
+      // Insert matches
       const matchesToInsert = previewMatches.map((m) => ({
         tournament_id: tournamentId,
         home_team_id: m.home_team_id,
@@ -705,8 +718,8 @@ export default function MatchScheduleGenerator({ tournamentId }: MatchScheduleGe
 
       if (error) throw error;
 
-      toast.success("Spielplan gespeichert");
-      setPreviewMatches([]);
+      toast.success(isSaved ? "Änderungen gespeichert" : "Spielplan gespeichert");
+      setIsSaved(true);
     } catch (error) {
       console.error("Error saving schedule:", error);
       toast.error("Fehler beim Speichern des Spielplans");
@@ -758,135 +771,20 @@ export default function MatchScheduleGenerator({ tournamentId }: MatchScheduleGe
                         <li>{previewMatches.filter(m => m.match_type !== 'group').length} KO-Spiele (mit Platzhaltern)</li>
                       )}
                     </ul>
+                    <p className="text-xs text-muted-foreground mt-2">
+                      💡 Tipp: Klicke auf eine Zeit um sie zu ändern. Ziehe Spiele per Drag & Drop um sie zu tauschen.
+                    </p>
                   </div>
                 </AlertDescription>
               </Alert>
 
-              {(() => {
-                // Group matches by time slot
-                const timeSlots = new Map<string, GeneratedMatch[]>();
-                const sortedMatches = [...previewMatches].sort((a, b) => 
-                  a.scheduled_time.getTime() - b.scheduled_time.getTime()
-                );
-                
-                sortedMatches.forEach(match => {
-                  const timeKey = format(match.scheduled_time, "HH:mm", { locale: de });
-                  if (!timeSlots.has(timeKey)) {
-                    timeSlots.set(timeKey, []);
-                  }
-                  timeSlots.get(timeKey)!.push(match);
-                });
-
-                // Get max field number
-                const maxField = Math.max(...previewMatches.map(m => m.field_number));
-                const fields = Array.from({ length: maxField }, (_, i) => i + 1);
-
-                // Detect breaks (time gaps > normal match + break duration)
-                const timeKeys = Array.from(timeSlots.keys());
-                
-                return (
-                  <div className="overflow-x-auto">
-                    <div className="w-full">
-                      {/* Header row with field numbers */}
-                      <div 
-                        className="grid gap-3 mb-3" 
-                        style={{ 
-                          gridTemplateColumns: `100px repeat(${maxField}, 1fr)` 
-                        }}
-                      >
-                        <div className="font-medium text-sm text-muted-foreground p-3">Zeit</div>
-                        {fields.map(field => (
-                          <div key={field} className="font-medium text-sm text-center p-3 bg-muted rounded-lg">
-                            Platz {field}
-                          </div>
-                        ))}
-                      </div>
-
-                      {/* Match rows by time slot */}
-                      {timeKeys.map((timeKey, idx) => {
-                        const matchesAtTime = timeSlots.get(timeKey)!;
-                        const isKOPhase = matchesAtTime.some(m => m.match_type !== 'group');
-                        
-                        // Check for break before this slot
-                        let showBreak = false;
-                        if (idx > 0) {
-                          const prevTime = timeSlots.get(timeKeys[idx - 1])![0].scheduled_time;
-                          const currTime = matchesAtTime[0].scheduled_time;
-                          const diffMinutes = (currTime.getTime() - prevTime.getTime()) / 60000;
-                          // Show break indicator if gap is significantly larger than normal
-                          if (diffMinutes > 30) {
-                            showBreak = true;
-                          }
-                        }
-
-                        return (
-                          <div key={timeKey}>
-                            {showBreak && (
-                              <div 
-                                className="grid gap-3 my-3" 
-                                style={{ gridTemplateColumns: `100px repeat(${maxField}, 1fr)` }}
-                              >
-                                <div></div>
-                                <div 
-                                  className="text-center py-3 text-sm text-muted-foreground bg-muted/50 rounded-lg border-dashed border"
-                                  style={{ gridColumn: `span ${maxField}` }}
-                                >
-                                  ⏸ Pause
-                                </div>
-                              </div>
-                            )}
-                            <div 
-                              className="grid gap-3 mb-3" 
-                              style={{ gridTemplateColumns: `100px repeat(${maxField}, 1fr)` }}
-                            >
-                              <div className="text-sm font-semibold p-3 flex items-center justify-center bg-muted/30 rounded-lg">
-                                {timeKey}
-                              </div>
-                              {fields.map(field => {
-                                const match = matchesAtTime.find(m => m.field_number === field);
-                                if (!match) {
-                                  return <div key={field} className="p-3 border border-dashed rounded-lg bg-muted/10 min-h-[120px]"></div>;
-                                }
-                                return (
-                                  <div 
-                                    key={field} 
-                                    className={`p-4 border rounded-lg ${
-                                      match.match_type !== 'group' 
-                                        ? 'bg-accent/20 border-accent' 
-                                        : 'bg-card'
-                                    }`}
-                                  >
-                                    <div className="flex items-center justify-between mb-2">
-                                      <span className="text-muted-foreground text-sm">#{match.match_number}</span>
-                                      <Badge variant={match.match_type !== 'group' ? 'default' : 'outline'} className="text-xs">
-                                        {match.categoryName}
-                                      </Badge>
-                                    </div>
-                                    {match.groupName && (
-                                      <div className="text-muted-foreground text-xs mb-2">{match.groupName}</div>
-                                    )}
-                                    <div className="font-medium text-sm truncate" title={match.homeTeamName}>
-                                      {match.homeTeamName}
-                                    </div>
-                                    <div className="text-center text-muted-foreground text-xs py-1">vs</div>
-                                    <div className="font-medium text-sm truncate" title={match.awayTeamName}>
-                                      {match.awayTeamName}
-                                    </div>
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                );
-              })()}
-
-              <Button onClick={handleSaveSchedule} disabled={loading} className="w-full">
-                Spielplan speichern
-              </Button>
+              <ScheduleEditor
+                matches={previewMatches}
+                onMatchesChange={setPreviewMatches}
+                onSave={handleSaveSchedule}
+                loading={loading}
+                isSaved={isSaved}
+              />
             </div>
           )}
         </CardContent>
