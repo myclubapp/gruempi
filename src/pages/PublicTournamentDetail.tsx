@@ -49,6 +49,8 @@ const PublicTournamentDetail = () => {
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [showRegistration, setShowRegistration] = useState(false);
+  const [hasMatches, setHasMatches] = useState(false);
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string>("");
 
   // Refs for scrolling
   const homeRef = useRef<HTMLDivElement>(null);
@@ -65,14 +67,9 @@ const PublicTournamentDetail = () => {
     // Handle category-specific schedule navigation
     if (section.startsWith("schedule-")) {
       scheduleRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-      // Optionally switch to the specific category tab after scrolling
+      // Switch to the specific category tab
       const categoryId = section.replace("schedule-", "");
-      setTimeout(() => {
-        const tabTrigger = document.querySelector(`[data-category-id="${categoryId}"]`);
-        if (tabTrigger) {
-          (tabTrigger as HTMLElement).click();
-        }
-      }, 500);
+      setSelectedCategoryId(categoryId);
     } else if (refs[section]) {
       refs[section].current?.scrollIntoView({ behavior: "smooth", block: "start" });
     }
@@ -110,7 +107,18 @@ const PublicTournamentDetail = () => {
 
     if (categoriesData) {
       setCategories(categoriesData);
+      if (categoriesData.length > 0) {
+        setSelectedCategoryId(categoriesData[0].id);
+      }
     }
+
+    // Check if matches exist
+    const { count } = await supabase
+      .from("matches")
+      .select("*", { count: "exact", head: true })
+      .eq("tournament_id", id);
+    
+    setHasMatches((count ?? 0) > 0);
 
     setLoading(false);
   };
@@ -157,9 +165,9 @@ const PublicTournamentDetail = () => {
     <div className="min-h-screen bg-background">
       <SimplifiedNavigation categories={categories} onNavigate={handleNavigate} />
       
-      <main className="container mx-auto px-4 py-8">
+      <main className="container mx-auto px-4 py-8 flex flex-col">
         {/* Home/Header Section */}
-        <div ref={homeRef} className="mb-8">
+        <div ref={homeRef} className={`mb-8 ${hasMatches ? 'order-2' : ''}`}>
           <Button
             variant="ghost"
             onClick={() => navigate("/tournaments")}
@@ -219,7 +227,7 @@ const PublicTournamentDetail = () => {
         </div>
 
         {/* Turnierinformationen Section */}
-        <div ref={infoRef} className="mb-8">
+        <div ref={infoRef} className={`mb-8 ${hasMatches ? 'order-3' : ''}`}>
           <h2 className="text-3xl font-bold mb-6">Turnierinformationen</h2>
           
           {/* Categories */}
@@ -319,11 +327,11 @@ const PublicTournamentDetail = () => {
         </div>
 
         {/* Spielpläne / Resultate Section */}
-        <div ref={scheduleRef} className="mb-8">
+        <div ref={scheduleRef} className={`mb-8 ${hasMatches ? 'order-first' : ''}`}>
           <h2 className="text-3xl font-bold mb-6">Spielpläne / Resultate</h2>
           <Card>
             <CardContent className="pt-6">
-              <Tabs defaultValue={categories[0]?.id || ""} className="w-full">
+              <Tabs value={selectedCategoryId} onValueChange={setSelectedCategoryId} className="w-full">
                 <TabsList className="grid w-full" style={{ gridTemplateColumns: `repeat(${categories.length}, minmax(0, 1fr))` }}>
                   {categories.map((category) => (
                     <TabsTrigger
