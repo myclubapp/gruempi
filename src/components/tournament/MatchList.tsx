@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
-import { Calendar, MapPin } from "lucide-react";
+import { Calendar, MapPin, Clock, Check, X } from "lucide-react";
 
 interface Match {
   id: string;
@@ -18,6 +18,9 @@ interface Match {
   field_number: number | null;
   status: string;
   group_id: string | null;
+  match_type: string;
+  home_placeholder: string | null;
+  away_placeholder: string | null;
 }
 
 interface Team {
@@ -37,6 +40,8 @@ const MatchList = ({ tournamentId, categoryId, isAdmin = false }: MatchListProps
   const [groups, setGroups] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [editingScores, setEditingScores] = useState<Record<string, { home: string; away: string }>>({});
+  const [editingTime, setEditingTime] = useState<string | null>(null);
+  const [newTime, setNewTime] = useState<string>("");
 
   useEffect(() => {
     loadData();
@@ -64,9 +69,11 @@ const MatchList = ({ tournamentId, categoryId, isAdmin = false }: MatchListProps
       .eq("tournament_id", tournamentId)
       .eq("category_id", categoryId);
 
+    const teamIds: string[] = [];
     if (teamsData) {
       const teamsMap = teamsData.reduce((acc, team) => {
         acc[team.id] = team;
+        teamIds.push(team.id);
         return acc;
       }, {} as Record<string, Team>);
       setTeams(teamsMap);
@@ -81,12 +88,80 @@ const MatchList = ({ tournamentId, categoryId, isAdmin = false }: MatchListProps
       .order("match_number");
 
     if (matchesData) {
-      // Filter matches that belong to groups in this category
+      // Filter matches that belong to groups in this category OR KO matches with teams from this category
       const groupIds = groupsData?.map(g => g.id) || [];
-      const categoryMatches = matchesData.filter(m => 
-        m.group_id && groupIds.includes(m.group_id)
-      );
-      setMatches(categoryMatches);
+      const groupNames = groupsData?.map(g => g.name) || [];
+      
+      // First pass: find all group matches and early KO matches for this category
+      const categoryMatchNumbers = new Set<number>();
+      
+      const categoryMatches = matchesData.filter(m => {
+        // Include group stage matches for this category
+        if (m.group_id && groupIds.includes(m.group_id)) {
+          categoryMatchNumbers.add(m.match_number);
+          return true;
+        }
+        
+        // Include KO matches where at least one team is from this category
+        if (m.match_type !== 'group') {
+          const homeInCategory = m.home_team_id && teamIds.includes(m.home_team_id);
+          const awayInCategory = m.away_team_id && teamIds.includes(m.away_team_id);
+          
+          // Check if placeholder references a group from this category
+          const homePlaceholderInCategory = m.home_placeholder && groupNames.some(gName => 
+            m.home_placeholder?.includes(gName)
+          );
+          const awayPlaceholderInCategory = m.away_placeholder && groupNames.some(gName => 
+            m.away_placeholder?.includes(gName)
+          );
+          
+          // Check if placeholder references a match number we already know belongs to this category
+          // e.g. "Sieger Spiel 15" where match 15 is in this category
+          const homeReferencesKnownMatch = m.home_placeholder && 
+            Array.from(categoryMatchNumbers).some(num => 
+              m.home_placeholder?.includes(`Spiel ${num}`)
+            );
+          const awayReferencesKnownMatch = m.away_placeholder && 
+            Array.from(categoryMatchNumbers).some(num => 
+              m.away_placeholder?.includes(`Spiel ${num}`)
+            );
+          
+          if (homeInCategory || awayInCategory || homePlaceholderInCategory || awayPlaceholderInCategory ||
+              homeReferencesKnownMatch || awayReferencesKnownMatch) {
+            categoryMatchNumbers.add(m.match_number);
+            return true;
+          }
+        }
+        return false;
+      });
+      
+      // Second pass: find KO matches that reference other KO matches in this category
+      // This handles the chain: semi-final -> final etc.
+      let foundMore = true;
+      while (foundMore) {
+        foundMore = false;
+        matchesData.forEach(m => {
+          if (m.match_type !== 'group' && !categoryMatchNumbers.has(m.match_number)) {
+            const homeReferencesKnownMatch = m.home_placeholder && 
+              Array.from(categoryMatchNumbers).some(num => 
+                m.home_placeholder?.includes(`Spiel ${num}`)
+              );
+            const awayReferencesKnownMatch = m.away_placeholder && 
+              Array.from(categoryMatchNumbers).some(num => 
+                m.away_placeholder?.includes(`Spiel ${num}`)
+              );
+            
+            if (homeReferencesKnownMatch || awayReferencesKnownMatch) {
+              categoryMatchNumbers.add(m.match_number);
+              foundMore = true;
+            }
+          }
+        });
+      }
+      
+      // Final filter with all discovered match numbers
+      const finalMatches = matchesData.filter(m => categoryMatchNumbers.has(m.match_number));
+      setMatches(finalMatches);
     }
 
     setLoading(false);
@@ -136,6 +211,41 @@ const MatchList = ({ tournamentId, categoryId, isAdmin = false }: MatchListProps
     }
   };
 
+  const handleStartEditTime = (matchId: string, currentTime: string) => {
+    const date = new Date(currentTime);
+    const timeStr = date.toLocaleTimeString("de-CH", { hour: "2-digit", minute: "2-digit" });
+    setEditingTime(matchId);
+    setNewTime(timeStr);
+  };
+
+  const handleSaveTime = async (matchId: string, currentScheduledTime: string) => {
+    if (!newTime) return;
+
+    // Parse the new time and combine with existing date
+    const [hours, minutes] = newTime.split(":").map(Number);
+    const existingDate = new Date(currentScheduledTime);
+    existingDate.setHours(hours, minutes, 0, 0);
+
+    const { error } = await supabase
+      .from("matches")
+      .update({ scheduled_time: existingDate.toISOString() })
+      .eq("id", matchId);
+
+    if (error) {
+      toast.error("Fehler beim Speichern der Spielzeit");
+    } else {
+      toast.success("Spielzeit aktualisiert");
+      setEditingTime(null);
+      setNewTime("");
+      loadData();
+    }
+  };
+
+  const handleCancelEditTime = () => {
+    setEditingTime(null);
+    setNewTime("");
+  };
+
   const getGroupName = (groupId: string | null) => {
     if (!groupId) return "";
     const group = groups.find(g => g.id === groupId);
@@ -159,8 +269,11 @@ const MatchList = ({ tournamentId, categoryId, isAdmin = false }: MatchListProps
     );
   }
 
-  // Group matches by group
-  const matchesByGroup = matches.reduce((acc, match) => {
+  // Group matches by group for group stage, then show KO matches separately
+  const groupMatches = matches.filter(m => m.match_type === 'group');
+  const koMatches = matches.filter(m => m.match_type !== 'group');
+
+  const matchesByGroup = groupMatches.reduce((acc, match) => {
     const groupId = match.group_id || 'no-group';
     if (!acc[groupId]) {
       acc[groupId] = [];
@@ -169,8 +282,30 @@ const MatchList = ({ tournamentId, categoryId, isAdmin = false }: MatchListProps
     return acc;
   }, {} as Record<string, Match[]>);
 
+  // Group KO matches by match_type (e.g., ko_final, ko_semi, etc.)
+  const koMatchesByRound = koMatches.reduce((acc, match) => {
+    const round = match.match_type;
+    if (!acc[round]) {
+      acc[round] = [];
+    }
+    acc[round].push(match);
+    return acc;
+  }, {} as Record<string, Match[]>);
+
+  const getKORoundName = (matchType: string) => {
+    const names: Record<string, string> = {
+      'ko_final': 'Final',
+      'ko_semi': 'Halbfinal',
+      'ko_quarter': 'Viertelfinal',
+      'ko_eighth': 'Achtelfinal',
+      'ko_sixteenth': 'Sechzehntelfinal',
+    };
+    return names[matchType] || matchType;
+  };
+
   return (
     <div className="space-y-6">
+      {/* Group Stage Matches */}
       {Object.entries(matchesByGroup).map(([groupId, groupMatches]) => (
         <Card key={groupId}>
           <CardHeader>
@@ -181,6 +316,7 @@ const MatchList = ({ tournamentId, categoryId, isAdmin = false }: MatchListProps
               const homeTeam = teams[match.home_team_id];
               const awayTeam = teams[match.away_team_id];
               const isEditing = editingScores[match.id];
+              const isEditingThisTime = editingTime === match.id;
 
               return (
                 <div
@@ -189,15 +325,49 @@ const MatchList = ({ tournamentId, categoryId, isAdmin = false }: MatchListProps
                 >
                   <div className="flex-1">
                     <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
-                      <Calendar className="w-4 h-4" />
-                      <span>
-                        {new Date(match.scheduled_time).toLocaleString("de-CH", {
-                          day: "2-digit",
-                          month: "2-digit",
-                          hour: "2-digit",
-                          minute: "2-digit"
-                        })}
-                      </span>
+                      {isAdmin && isEditingThisTime ? (
+                        <div className="flex items-center gap-2">
+                          <Clock className="w-4 h-4" />
+                          <Input
+                            type="time"
+                            value={newTime}
+                            onChange={(e) => setNewTime(e.target.value)}
+                            className="w-24 h-7 text-sm"
+                          />
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-7 w-7"
+                            onClick={() => handleSaveTime(match.id, match.scheduled_time)}
+                          >
+                            <Check className="w-4 h-4 text-green-600" />
+                          </Button>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-7 w-7"
+                            onClick={handleCancelEditTime}
+                          >
+                            <X className="w-4 h-4 text-red-600" />
+                          </Button>
+                        </div>
+                      ) : (
+                        <>
+                          <Calendar className="w-4 h-4" />
+                          <span
+                            className={isAdmin ? "cursor-pointer hover:underline" : ""}
+                            onClick={() => isAdmin && handleStartEditTime(match.id, match.scheduled_time)}
+                            title={isAdmin ? "Klicken zum Bearbeiten" : ""}
+                          >
+                            {new Date(match.scheduled_time).toLocaleString("de-CH", {
+                              day: "2-digit",
+                              month: "2-digit",
+                              hour: "2-digit",
+                              minute: "2-digit"
+                            })}
+                          </span>
+                        </>
+                      )}
                       {match.field_number && (
                         <>
                           <MapPin className="w-4 h-4 ml-2" />
@@ -211,7 +381,7 @@ const MatchList = ({ tournamentId, categoryId, isAdmin = false }: MatchListProps
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-4 flex-1">
                         <span className="font-semibold min-w-[120px]">
-                          {homeTeam?.name || "Team nicht gefunden"}
+                          {homeTeam?.name || match.home_placeholder || "Team nicht gefunden"}
                         </span>
                         {isAdmin ? (
                           <div className="flex items-center gap-2">
@@ -239,7 +409,135 @@ const MatchList = ({ tournamentId, categoryId, isAdmin = false }: MatchListProps
                           </div>
                         )}
                         <span className="font-semibold min-w-[120px]">
-                          {awayTeam?.name || "Team nicht gefunden"}
+                          {awayTeam?.name || match.away_placeholder || "Team nicht gefunden"}
+                        </span>
+                      </div>
+                      {isAdmin && isEditing && (
+                        <Button onClick={() => handleSaveScore(match.id)} size="sm">
+                          Speichern
+                        </Button>
+                      )}
+                      {!isAdmin && match.status === "completed" && (
+                        <Badge variant="default" className="bg-green-600">
+                          Beendet
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </CardContent>
+        </Card>
+      ))}
+
+      {/* KO Phase Matches */}
+      {Object.entries(koMatchesByRound).map(([roundType, roundMatches]) => (
+        <Card key={roundType}>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              🏆 {getKORoundName(roundType)}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {roundMatches.map((match) => {
+              const homeTeam = teams[match.home_team_id];
+              const awayTeam = teams[match.away_team_id];
+              const isEditing = editingScores[match.id];
+              const isEditingThisTime = editingTime === match.id;
+
+              return (
+                <div
+                  key={match.id}
+                  className="flex items-center justify-between p-4 border border-accent rounded-lg bg-accent/10"
+                >
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
+                      {isAdmin && isEditingThisTime ? (
+                        <div className="flex items-center gap-2">
+                          <Clock className="w-4 h-4" />
+                          <Input
+                            type="time"
+                            value={newTime}
+                            onChange={(e) => setNewTime(e.target.value)}
+                            className="w-24 h-7 text-sm"
+                          />
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-7 w-7"
+                            onClick={() => handleSaveTime(match.id, match.scheduled_time)}
+                          >
+                            <Check className="w-4 h-4 text-green-600" />
+                          </Button>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-7 w-7"
+                            onClick={handleCancelEditTime}
+                          >
+                            <X className="w-4 h-4 text-red-600" />
+                          </Button>
+                        </div>
+                      ) : (
+                        <>
+                          <Calendar className="w-4 h-4" />
+                          <span
+                            className={isAdmin ? "cursor-pointer hover:underline" : ""}
+                            onClick={() => isAdmin && handleStartEditTime(match.id, match.scheduled_time)}
+                            title={isAdmin ? "Klicken zum Bearbeiten" : ""}
+                          >
+                            {new Date(match.scheduled_time).toLocaleString("de-CH", {
+                              day: "2-digit",
+                              month: "2-digit",
+                              hour: "2-digit",
+                              minute: "2-digit"
+                            })}
+                          </span>
+                        </>
+                      )}
+                      {match.field_number && (
+                        <>
+                          <MapPin className="w-4 h-4 ml-2" />
+                          <span>Feld {match.field_number}</span>
+                        </>
+                      )}
+                      <Badge variant="default" className="ml-2">
+                        Spiel {match.match_number}
+                      </Badge>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-4 flex-1">
+                        <span className="font-semibold min-w-[120px]">
+                          {homeTeam?.name || match.home_placeholder || "Team wird ermittelt"}
+                        </span>
+                        {isAdmin ? (
+                          <div className="flex items-center gap-2">
+                            <Input
+                              type="number"
+                              min="0"
+                              className="w-16 text-center"
+                              placeholder="0"
+                              value={isEditing?.home || match.home_score?.toString() || ""}
+                              onChange={(e) => handleScoreChange(match.id, 'home', e.target.value)}
+                            />
+                            <span className="text-muted-foreground">:</span>
+                            <Input
+                              type="number"
+                              min="0"
+                              className="w-16 text-center"
+                              placeholder="0"
+                              value={isEditing?.away || match.away_score?.toString() || ""}
+                              onChange={(e) => handleScoreChange(match.id, 'away', e.target.value)}
+                            />
+                          </div>
+                        ) : (
+                          <div className="text-2xl font-bold">
+                            {match.home_score ?? "-"} : {match.away_score ?? "-"}
+                          </div>
+                        )}
+                        <span className="font-semibold min-w-[120px]">
+                          {awayTeam?.name || match.away_placeholder || "Team wird ermittelt"}
                         </span>
                       </div>
                       {isAdmin && isEditing && (

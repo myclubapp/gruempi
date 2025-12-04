@@ -131,20 +131,64 @@ const TournamentCockpit = () => {
     setLoading(false);
   };
 
-  const handleScoreUpdate = async (matchId: string, homeScore: number, awayScore: number) => {
-    const { error } = await supabase
+  // Update score locally (optimistic update) and persist to database
+  const updateScoreLocally = (matchId: string, homeScore: number, awayScore: number) => {
+    // Update local state immediately for responsive UI
+    setRounds(prevRounds => 
+      prevRounds.map(round => 
+        round.map(match => 
+          match.id === matchId 
+            ? { ...match, home_score: homeScore, away_score: awayScore }
+            : match
+        )
+      )
+    );
+
+    // Persist to database in background
+    supabase
       .from("matches")
       .update({
         home_score: homeScore,
         away_score: awayScore,
+      })
+      .eq("id", matchId)
+      .then(({ error }) => {
+        if (error) {
+          toast.error("Fehler beim Speichern");
+          loadData(); // Reload on error to sync state
+        }
+      });
+  };
+
+  // Confirm result and mark match as completed
+  const confirmResult = async (match: MatchWithTeams) => {
+    const { error } = await supabase
+      .from("matches")
+      .update({
         status: "completed"
+      })
+      .eq("id", match.id);
+
+    if (error) {
+      toast.error("Fehler beim Bestätigen");
+    } else {
+      toast.success(`Resultat bestätigt: ${match.homeTeam.name} ${match.home_score ?? 0} : ${match.away_score ?? 0} ${match.awayTeam.name}`);
+      loadData();
+    }
+  };
+
+  // Reopen a completed match for editing
+  const reopenMatch = async (matchId: string) => {
+    const { error } = await supabase
+      .from("matches")
+      .update({
+        status: "scheduled"
       })
       .eq("id", matchId);
 
     if (error) {
-      toast.error("Fehler beim Speichern");
+      toast.error("Fehler beim Öffnen");
     } else {
-      toast.success("Resultat gespeichert");
       loadData();
     }
   };
@@ -154,9 +198,9 @@ const TournamentCockpit = () => {
     const currentAway = match.away_score ?? 0;
     
     if (team === 'home') {
-      handleScoreUpdate(match.id, currentHome + 1, currentAway);
+      updateScoreLocally(match.id, currentHome + 1, currentAway);
     } else {
-      handleScoreUpdate(match.id, currentHome, currentAway + 1);
+      updateScoreLocally(match.id, currentHome, currentAway + 1);
     }
   };
 
@@ -165,9 +209,9 @@ const TournamentCockpit = () => {
     const currentAway = match.away_score ?? 0;
     
     if (team === 'home' && currentHome > 0) {
-      handleScoreUpdate(match.id, currentHome - 1, currentAway);
+      updateScoreLocally(match.id, currentHome - 1, currentAway);
     } else if (team === 'away' && currentAway > 0) {
-      handleScoreUpdate(match.id, currentHome, currentAway - 1);
+      updateScoreLocally(match.id, currentHome, currentAway - 1);
     }
   };
 
@@ -274,6 +318,7 @@ const TournamentCockpit = () => {
                       variant="outline"
                       onClick={() => decrementScore(match, 'home')}
                       className="h-16 w-16 text-2xl"
+                      disabled={match.status === "completed"}
                     >
                       -
                     </Button>
@@ -285,6 +330,7 @@ const TournamentCockpit = () => {
                       variant="default"
                       onClick={() => incrementScore(match, 'home')}
                       className="h-16 w-16 text-2xl"
+                      disabled={match.status === "completed"}
                     >
                       +
                     </Button>
@@ -304,6 +350,7 @@ const TournamentCockpit = () => {
                       variant="outline"
                       onClick={() => decrementScore(match, 'away')}
                       className="h-16 w-16 text-2xl"
+                      disabled={match.status === "completed"}
                     >
                       -
                     </Button>
@@ -315,16 +362,30 @@ const TournamentCockpit = () => {
                       variant="default"
                       onClick={() => incrementScore(match, 'away')}
                       className="h-16 w-16 text-2xl"
+                      disabled={match.status === "completed"}
                     >
                       +
                     </Button>
                   </div>
                 </div>
 
-                {match.status === "completed" && (
-                  <Badge variant="default" className="w-full justify-center bg-green-600">
-                    Beendet
-                  </Badge>
+                {/* Confirm or Reopen Button */}
+                {match.status === "completed" ? (
+                  <Button
+                    variant="outline"
+                    className="w-full border-green-600 text-green-600 hover:bg-green-600/10"
+                    onClick={() => reopenMatch(match.id)}
+                  >
+                    ✓ Beendet ({match.home_score} : {match.away_score}) - Klicken zum Bearbeiten
+                  </Button>
+                ) : (
+                  <Button
+                    variant="default"
+                    className="w-full bg-green-600 hover:bg-green-700"
+                    onClick={() => confirmResult(match)}
+                  >
+                    Resultat bestätigen
+                  </Button>
                 )}
               </CardContent>
             </Card>

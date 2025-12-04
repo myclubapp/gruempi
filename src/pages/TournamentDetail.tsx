@@ -16,10 +16,12 @@ import PaymentSettings from "@/components/tournament/PaymentSettings";
 import DashboardLayout from "@/components/DashboardLayout";
 
 import TournamentSettings from "@/components/tournament/TournamentSettings";
-import TournamentCategoriesRules from "@/components/tournament/TournamentCategoriesRules";
+import TournamentCategories from "@/components/tournament/TournamentCategories";
+import TournamentRules from "@/components/tournament/TournamentRules";
 import ScheduleConfig from "@/components/tournament/ScheduleConfig";
 import GroupManagement from "@/components/tournament/GroupManagement";
 import MatchScheduleGenerator from "@/components/tournament/MatchScheduleGenerator";
+import SavedScheduleEditor from "@/components/tournament/SavedScheduleEditor";
 import MatchList from "@/components/tournament/MatchList";
 import StandingsTable from "@/components/tournament/StandingsTable";
 import TeamPaymentManagement from "@/components/tournament/TeamPaymentManagement";
@@ -386,12 +388,13 @@ const TournamentDetail = () => {
       </div>
 
         <Tabs defaultValue="overview" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-6">
-            <TabsTrigger value="overview">Übersicht</TabsTrigger>
-            <TabsTrigger value="teams">Teams</TabsTrigger>
+          <TabsList className="grid w-full grid-cols-7">
+            <TabsTrigger value="overview">Allgemeine Infos</TabsTrigger>
+            <TabsTrigger value="categories">Kategorien</TabsTrigger>
             <TabsTrigger value="groups">Gruppen</TabsTrigger>
+            <TabsTrigger value="teams">Teams</TabsTrigger>
             <TabsTrigger value="schedule">Spielplan</TabsTrigger>
-            <TabsTrigger value="payment">Zahlungen</TabsTrigger>
+            <TabsTrigger value="payment">Finanzen</TabsTrigger>
             <TabsTrigger value="settings">Einstellungen</TabsTrigger>
           </TabsList>
 
@@ -431,14 +434,21 @@ const TournamentDetail = () => {
               </Card>
             )}
 
-            {/* Tournament Settings (moved from settings tab) */}
+            {/* Tournament Settings */}
             <TournamentSettings
               tournament={tournament}
               onUpdate={loadTournament}
             />
 
-            {/* Categories and Rules */}
-            <TournamentCategoriesRules
+            {/* Rules and Terms */}
+            <TournamentRules
+              tournament={tournament}
+              onUpdate={loadTournament}
+            />
+          </TabsContent>
+
+          <TabsContent value="categories">
+            <TournamentCategories
               tournament={tournament}
               onUpdate={loadTournament}
             />
@@ -552,12 +562,14 @@ const TournamentDetail = () => {
           <TabsContent value="schedule" className="space-y-6">
             <MatchScheduleGenerator tournamentId={id!} />
             
+            <SavedScheduleEditor tournamentId={id!} />
+            
             {categories.length > 0 && (
               <Card className="mt-6">
                 <CardHeader>
-                  <CardTitle>Spielpläne & Resultate</CardTitle>
+                  <CardTitle>Tabellen & Resultate pro Kategorie</CardTitle>
                   <CardDescription>
-                    Verwalten Sie Spielpläne und erfassen Sie Resultate
+                    Gruppenranglisten und Resultate nach Kategorie
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -576,7 +588,7 @@ const TournamentDetail = () => {
                           <StandingsTable tournamentId={id!} categoryId={category.id} />
                         </div>
                         <div>
-                          <h3 className="text-xl font-semibold mb-4">Spielplan & Resultate</h3>
+                          <h3 className="text-xl font-semibold mb-4">Resultate erfassen</h3>
                           <MatchList tournamentId={id!} categoryId={category.id} isAdmin={true} />
                         </div>
                       </TabsContent>

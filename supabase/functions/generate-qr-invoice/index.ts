@@ -50,14 +50,9 @@ function formatReference(ref: string): string {
   return ref.replace(/(.{5})/g, '$1 ').trim();
 }
 
-// Format date in German Swiss format
-function formatDate(dateStr: string): string {
-  const date = new Date(dateStr);
-  return date.toLocaleDateString("de-CH", {
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric'
-  });
+// mm to points conversion for jsPDF (1mm = 2.83465pt, jsPDF uses mm by default)
+function mmToPt(mm: number): number {
+  return mm * 2.83465;
 }
 
 serve(async (req) => {
