@@ -161,12 +161,26 @@ export default function ScheduleEditor({
       return;
     }
 
-    // Update all matches in this time slot
+    // Calculate the time difference in milliseconds
+    const oldTimeMs = oldHours * 60 * 60 * 1000 + oldMinutes * 60 * 1000;
+    const newTimeMs = newHours * 60 * 60 * 1000 + newMinutes * 60 * 1000;
+    const timeDiffMs = newTimeMs - oldTimeMs;
+
+    // Find the first match at the edited time slot to get the reference date
+    const referenceMatch = matches.find(
+      (m) => format(m.scheduled_time, "HH:mm", { locale: de }) === editingTimeSlot
+    );
+    if (!referenceMatch) return;
+
+    const referenceTime = referenceMatch.scheduled_time.getTime();
+
+    // Update all matches: matches at this time slot and all subsequent matches
     const updatedMatches = matches.map((m) => {
-      const matchTime = format(m.scheduled_time, "HH:mm", { locale: de });
-      if (matchTime === editingTimeSlot) {
-        const newDate = new Date(m.scheduled_time);
-        newDate.setHours(newHours, newMinutes, 0, 0);
+      const matchTime = m.scheduled_time.getTime();
+      
+      // If match is at or after the edited time slot, shift it
+      if (matchTime >= referenceTime) {
+        const newDate = new Date(matchTime + timeDiffMs);
         return { ...m, scheduled_time: newDate };
       }
       return m;
@@ -174,7 +188,7 @@ export default function ScheduleEditor({
 
     onMatchesChange(updatedMatches);
     setEditingTimeSlot(null);
-    toast.success("Zeit geändert");
+    toast.success("Zeit geändert - Folgende Spiele wurden angepasst");
   };
 
   return (
