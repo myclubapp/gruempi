@@ -2,12 +2,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 
-// Import pdfkit and swissqrbill/pdf
-const PDFDocument = (await import("https://esm.sh/pdfkit@0.15.0")).default;
-const { SwissQRBill } = await import("https://esm.sh/swissqrbill@4.2.1/pdf");
-const { mm2pt } = await import("https://esm.sh/swissqrbill@4.2.1/utils");
-const { Table } = await import("https://esm.sh/swissqrbill@4.2.1/pdf");
-
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -83,7 +77,7 @@ serve(async (req) => {
       throw new Error("team_id is required");
     }
 
-    console.log("Generating QR invoice PDF for team:", team_id);
+    console.log("Generating QR invoice for team:", team_id);
 
     // Fetch team with tournament and category details
     const { data: team, error: teamError } = await supabaseClient
@@ -131,6 +125,9 @@ serve(async (req) => {
     // Get entry fee from category or tournament
     const entryFee = team.category?.entry_fee || team.tournament.entry_fee || 0;
 
+    // Import swissqrbill dynamically to use pdf method
+    const { pdf } = await import("https://esm.sh/swissqrbill@4.2.1");
+
     // Prepare QR Bill data for swissqrbill
     const qrBillData = {
       amount: entryFee,
@@ -138,7 +135,7 @@ serve(async (req) => {
         account: creditorAccount.replace(/\s/g, ''),
         name: creditorName,
         address: creditorAddress,
-        buildingNumber: creditorBuildingNumber ? String(creditorBuildingNumber) : "",
+        buildingNumber: creditorBuildingNumber ? String(creditorBuildingNumber) : undefined,
         zip: parseInt(creditorZip) || 0,
         city: creditorCity,
         country: creditorCountry
@@ -147,208 +144,23 @@ serve(async (req) => {
       debtor: {
         name: team.contact_name,
         address: "",
-        buildingNumber: "",
         zip: 0,
         city: creditorCity,
         country: "CH"
       },
       reference: referenceNumber,
       message: `Startgeld ${team.tournament.name} - Team ${team.name}`,
-      additionalInformation: formatReference(referenceNumber)
     };
 
-    console.log("Creating PDF with SwissQRBill...");
+    console.log("Creating QR Bill PDF with swissqrbill...");
 
-    // Generate PDF using PDFKit and SwissQRBill
-    const pdfBuffer: Uint8Array = await new Promise((resolve, reject) => {
-      const pdf = new PDFDocument({ size: 'A4' });
-      const qrBill = new SwissQRBill(qrBillData);
-      const chunks: Uint8Array[] = [];
-
-      // Attach QR bill to PDF (this adds it at the bottom)
-      qrBill.attachTo(pdf);
-
-      // Add creditor address (top left)
-      pdf.fontSize(12);
-      pdf.fillColor('black');
-      pdf.font('Helvetica');
-      pdf.text(
-        `${qrBillData.creditor.name}\n${qrBillData.creditor.address} ${qrBillData.creditor.buildingNumber}\n${qrBillData.creditor.zip} ${qrBillData.creditor.city}`,
-        mm2pt(20),
-        mm2pt(40),
-        {
-          align: 'left',
-          height: mm2pt(50),
-          width: mm2pt(100),
-        }
-      );
-
-      // Add debtor address (top right)
-      pdf.fontSize(12);
-      pdf.font('Helvetica');
-      pdf.text(
-        `${qrBillData.debtor.name}\n${team.contact_email}`,
-        mm2pt(130),
-        mm2pt(60),
-        {
-          align: 'left',
-          height: mm2pt(50),
-          width: mm2pt(70),
-        }
-      );
-
-      // Create title
-      pdf.fontSize(14);
-      pdf.font('Helvetica-Bold');
-      pdf.text(
-        `Rechnung Nr. ${formatReference(referenceNumber)}`,
-        mm2pt(20),
-        mm2pt(100),
-        {
-          align: 'left',
-          width: mm2pt(170),
-        }
-      );
-
-      // Add date
-      const date = new Date();
-      pdf.fontSize(11);
-      pdf.font('Helvetica');
-      pdf.text(
-        `${qrBillData.creditor.city}, ${date.getDate()}.${date.getMonth() + 1}.${date.getFullYear()}`,
-        {
-          align: 'right',
-          width: mm2pt(170),
-        }
-      );
-
-      // Add table with invoice items
-      const invoicePositions = [
-        {
-          columns: [
-            {
-              text: '1',
-              width: mm2pt(20),
-            },
-            {
-              text: '1 x',
-              width: mm2pt(20),
-            },
-            {
-              text: `Startgeld ${team.tournament.name}\nTeam: ${team.name}\nKategorie: ${team.category?.name || 'N/A'}`,
-            },
-            {
-              text: `CHF ${entryFee.toFixed(2)}`,
-              width: mm2pt(30),
-              align: 'right' as const,
-            },
-          ],
-          padding: 5,
-        },
-      ];
-
-      const table = new Table({
-        rows: [
-          {
-            backgroundColor: '#4A4D51',
-            columns: [
-              {
-                text: 'Position',
-                width: mm2pt(20),
-              },
-              {
-                text: 'Anzahl',
-                width: mm2pt(20),
-              },
-              {
-                text: 'Bezeichnung',
-              },
-              {
-                text: 'Total',
-                width: mm2pt(30),
-                align: 'left' as const,
-              },
-            ],
-            fontName: 'Helvetica-Bold',
-            height: 20,
-            padding: 5,
-            textColor: '#fff',
-            verticalAlign: 'center',
-          },
-          ...invoicePositions,
-          {
-            columns: [
-              {
-                text: '',
-                width: mm2pt(20),
-              },
-              {
-                text: '',
-                width: mm2pt(20),
-              },
-              {
-                fontName: 'Helvetica-Bold',
-                text: 'Summe',
-              },
-              {
-                fontName: 'Helvetica-Bold',
-                text: `CHF ${entryFee.toFixed(2)}`,
-                width: mm2pt(30),
-                align: 'right' as const,
-              },
-            ],
-            height: 40,
-            padding: 5,
-          },
-          {
-            columns: [
-              {
-                text: '',
-                width: mm2pt(20),
-              },
-              {
-                text: '',
-                width: mm2pt(20),
-              },
-              {
-                fontName: 'Helvetica-Bold',
-                text: 'Rechnungstotal',
-              },
-              {
-                fontName: 'Helvetica-Bold',
-                text: `CHF ${entryFee.toFixed(2)}`,
-                width: mm2pt(30),
-                align: 'right' as const,
-              },
-            ],
-            height: 40,
-            padding: 5,
-          },
-        ],
-        width: mm2pt(170),
-      });
-
-      table.attachTo(pdf);
-
-      pdf.on('data', (chunk: Uint8Array) => chunks.push(chunk));
-      pdf.on('end', () => {
-        const result = new Uint8Array(chunks.reduce((acc, chunk) => acc + chunk.length, 0));
-        let offset = 0;
-        for (const chunk of chunks) {
-          result.set(chunk, offset);
-          offset += chunk.length;
-        }
-        resolve(result);
-      });
-      pdf.on('error', reject);
-
-      pdf.end();
-    });
+    // Generate PDF using the pdf() function
+    const pdfBuffer = await pdf(qrBillData);
 
     console.log("QR invoice PDF generated successfully, size:", pdfBuffer.length);
 
     // Convert to base64
-    const base64Pdf = btoa(String.fromCharCode(...pdfBuffer));
+    const base64Pdf = btoa(String.fromCharCode(...new Uint8Array(pdfBuffer)));
 
     return new Response(
       JSON.stringify({
