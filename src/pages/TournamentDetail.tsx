@@ -21,6 +21,7 @@ import TournamentRules from "@/components/tournament/TournamentRules";
 import ScheduleConfig from "@/components/tournament/ScheduleConfig";
 import GroupManagement from "@/components/tournament/GroupManagement";
 import MatchScheduleGenerator from "@/components/tournament/MatchScheduleGenerator";
+import SavedScheduleEditor from "@/components/tournament/SavedScheduleEditor";
 import MatchList from "@/components/tournament/MatchList";
 import StandingsTable from "@/components/tournament/StandingsTable";
 import TeamPaymentManagement from "@/components/tournament/TeamPaymentManagement";
@@ -561,12 +562,14 @@ const TournamentDetail = () => {
           <TabsContent value="schedule" className="space-y-6">
             <MatchScheduleGenerator tournamentId={id!} />
             
+            <SavedScheduleEditor tournamentId={id!} />
+            
             {categories.length > 0 && (
               <Card className="mt-6">
                 <CardHeader>
-                  <CardTitle>Spielpläne & Resultate</CardTitle>
+                  <CardTitle>Tabellen & Resultate pro Kategorie</CardTitle>
                   <CardDescription>
-                    Verwalten Sie Spielpläne und erfassen Sie Resultate
+                    Gruppenranglisten und Resultate nach Kategorie
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -585,7 +588,7 @@ const TournamentDetail = () => {
                           <StandingsTable tournamentId={id!} categoryId={category.id} />
                         </div>
                         <div>
-                          <h3 className="text-xl font-semibold mb-4">Spielplan & Resultate</h3>
+                          <h3 className="text-xl font-semibold mb-4">Resultate erfassen</h3>
                           <MatchList tournamentId={id!} categoryId={category.id} isAdmin={true} />
                         </div>
                       </TabsContent>
