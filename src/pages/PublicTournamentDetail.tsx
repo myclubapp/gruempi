@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ArrowLeft, Calendar, MapPin, Clock, FileText, Award } from "lucide-react";
+import { ArrowLeft, Calendar, MapPin, Clock, FileText } from "lucide-react";
 import { toast } from "sonner";
 import SimplifiedNavigation from "@/components/SimplifiedNavigation";
 import ModernFooter from "@/components/ModernFooter";
@@ -166,8 +166,8 @@ const PublicTournamentDetail = () => {
       <SimplifiedNavigation categories={categories} onNavigate={handleNavigate} />
       
       <main className="container mx-auto px-4 py-8 flex flex-col">
-        {/* Home/Header Section */}
-        <div ref={homeRef} className={`mb-8 ${hasMatches ? 'order-2' : ''}`}>
+        {/* Home/Header Section - Always at top */}
+        <div ref={homeRef} className="mb-8">
           <Button
             variant="ghost"
             onClick={() => navigate("/tournaments")}
@@ -197,10 +197,6 @@ const PublicTournamentDetail = () => {
                   <MapPin className="w-4 h-4" />
                   <span>{tournament.location}</span>
                 </div>
-                <div className="flex items-center gap-2">
-                  <Award className="w-4 h-4" />
-                  <span>CHF {tournament.entry_fee.toFixed(2)}</span>
-                </div>
               </div>
             </div>
             {isRegistrationOpen() ? (
@@ -226,8 +222,46 @@ const PublicTournamentDetail = () => {
           )}
         </div>
 
+        {/* Spielpläne / Resultate Section - Show first when matches exist */}
+        {hasMatches && (
+          <div ref={scheduleRef} className="mb-8">
+            <h2 className="text-3xl font-bold mb-6">Spielpläne / Resultate</h2>
+            <Card>
+              <CardContent className="pt-6">
+                <Tabs value={selectedCategoryId} onValueChange={setSelectedCategoryId} className="w-full">
+                  <TabsList className="grid w-full" style={{ gridTemplateColumns: `repeat(${categories.length}, minmax(0, 1fr))` }}>
+                    {categories.map((category) => (
+                      <TabsTrigger
+                        key={category.id}
+                        value={category.id}
+                        data-category-id={category.id}
+                      >
+                        {category.name}
+                      </TabsTrigger>
+                    ))}
+                  </TabsList>
+                  {categories.map((category) => (
+                    <TabsContent key={category.id} value={category.id} className="mt-6">
+                      <div className="space-y-8">
+                        <div>
+                          <h3 className="text-xl font-semibold mb-4">Tabelle</h3>
+                          <StandingsTable tournamentId={id!} categoryId={category.id} />
+                        </div>
+                        <div>
+                          <h3 className="text-xl font-semibold mb-4">Spielplan</h3>
+                          <MatchList tournamentId={id!} categoryId={category.id} isAdmin={false} />
+                        </div>
+                      </div>
+                    </TabsContent>
+                  ))}
+                </Tabs>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
         {/* Turnierinformationen Section */}
-        <div ref={infoRef} className={`mb-8 ${hasMatches ? 'order-3' : ''}`}>
+        <div ref={infoRef} className="mb-8">
           <h2 className="text-3xl font-bold mb-6">Turnierinformationen</h2>
           
           {/* Categories */}
@@ -326,41 +360,43 @@ const PublicTournamentDetail = () => {
           </div>
         </div>
 
-        {/* Spielpläne / Resultate Section */}
-        <div ref={scheduleRef} className={`mb-8 ${hasMatches ? 'order-first' : ''}`}>
-          <h2 className="text-3xl font-bold mb-6">Spielpläne / Resultate</h2>
-          <Card>
-            <CardContent className="pt-6">
-              <Tabs value={selectedCategoryId} onValueChange={setSelectedCategoryId} className="w-full">
-                <TabsList className="grid w-full" style={{ gridTemplateColumns: `repeat(${categories.length}, minmax(0, 1fr))` }}>
+        {/* Spielpläne / Resultate Section - Show at bottom when no matches */}
+        {!hasMatches && (
+          <div ref={scheduleRef} className="mb-8">
+            <h2 className="text-3xl font-bold mb-6">Spielpläne / Resultate</h2>
+            <Card>
+              <CardContent className="pt-6">
+                <Tabs value={selectedCategoryId} onValueChange={setSelectedCategoryId} className="w-full">
+                  <TabsList className="grid w-full" style={{ gridTemplateColumns: `repeat(${categories.length}, minmax(0, 1fr))` }}>
+                    {categories.map((category) => (
+                      <TabsTrigger
+                        key={category.id}
+                        value={category.id}
+                        data-category-id={category.id}
+                      >
+                        {category.name}
+                      </TabsTrigger>
+                    ))}
+                  </TabsList>
                   {categories.map((category) => (
-                    <TabsTrigger
-                      key={category.id}
-                      value={category.id}
-                      data-category-id={category.id}
-                    >
-                      {category.name}
-                    </TabsTrigger>
+                    <TabsContent key={category.id} value={category.id} className="mt-6">
+                      <div className="space-y-8">
+                        <div>
+                          <h3 className="text-xl font-semibold mb-4">Tabelle</h3>
+                          <StandingsTable tournamentId={id!} categoryId={category.id} />
+                        </div>
+                        <div>
+                          <h3 className="text-xl font-semibold mb-4">Spielplan</h3>
+                          <MatchList tournamentId={id!} categoryId={category.id} isAdmin={false} />
+                        </div>
+                      </div>
+                    </TabsContent>
                   ))}
-                </TabsList>
-                {categories.map((category) => (
-                  <TabsContent key={category.id} value={category.id} className="mt-6">
-                    <div className="space-y-8">
-                      <div>
-                        <h3 className="text-xl font-semibold mb-4">Tabelle</h3>
-                        <StandingsTable tournamentId={id!} categoryId={category.id} />
-                      </div>
-                      <div>
-                        <h3 className="text-xl font-semibold mb-4">Spielplan</h3>
-                        <MatchList tournamentId={id!} categoryId={category.id} isAdmin={false} />
-                      </div>
-                    </div>
-                  </TabsContent>
-                ))}
-              </Tabs>
-            </CardContent>
-          </Card>
-        </div>
+                </Tabs>
+              </CardContent>
+            </Card>
+          </div>
+        )}
 
         {/* Registration CTA */}
         {isRegistrationOpen() ? (

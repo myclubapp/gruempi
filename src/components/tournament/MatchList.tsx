@@ -91,50 +91,58 @@ const MatchList = ({ tournamentId, categoryId, isAdmin = false }: MatchListProps
       // Filter matches that belong to groups in this category OR KO matches with teams from this category
       const groupIds = groupsData?.map(g => g.id) || [];
       const groupNames = groupsData?.map(g => g.name) || [];
-      
+
+      // Helper function to check if a placeholder references a specific match number
+      // Uses word boundary matching to prevent false positives (e.g., "Spiel 1" matching "Spiel 15")
+      const placeholderReferencesMatch = (placeholder: string | null, matchNumber: number): boolean => {
+        if (!placeholder) return false;
+        // Match "Spiel X" where X is followed by end of string or non-digit character
+        const regex = new RegExp(`Spiel ${matchNumber}(?![0-9])`);
+        return regex.test(placeholder);
+      };
+
       // First pass: find all group matches and early KO matches for this category
       const categoryMatchNumbers = new Set<number>();
-      
-      const categoryMatches = matchesData.filter(m => {
+
+      matchesData.forEach(m => {
         // Include group stage matches for this category
         if (m.group_id && groupIds.includes(m.group_id)) {
           categoryMatchNumbers.add(m.match_number);
-          return true;
+          return;
         }
-        
+
         // Include KO matches where at least one team is from this category
         if (m.match_type !== 'group') {
           const homeInCategory = m.home_team_id && teamIds.includes(m.home_team_id);
           const awayInCategory = m.away_team_id && teamIds.includes(m.away_team_id);
-          
+
           // Check if placeholder references a group from this category
-          const homePlaceholderInCategory = m.home_placeholder && groupNames.some(gName => 
-            m.home_placeholder?.includes(gName)
-          );
-          const awayPlaceholderInCategory = m.away_placeholder && groupNames.some(gName => 
-            m.away_placeholder?.includes(gName)
-          );
-          
+          // Use word boundary to avoid "A" matching "Gruppe AB"
+          const homePlaceholderInCategory = m.home_placeholder && groupNames.some(gName => {
+            const regex = new RegExp(`\\b${gName}\\b`);
+            return regex.test(m.home_placeholder || '');
+          });
+          const awayPlaceholderInCategory = m.away_placeholder && groupNames.some(gName => {
+            const regex = new RegExp(`\\b${gName}\\b`);
+            return regex.test(m.away_placeholder || '');
+          });
+
           // Check if placeholder references a match number we already know belongs to this category
           // e.g. "Sieger Spiel 15" where match 15 is in this category
-          const homeReferencesKnownMatch = m.home_placeholder && 
-            Array.from(categoryMatchNumbers).some(num => 
-              m.home_placeholder?.includes(`Spiel ${num}`)
-            );
-          const awayReferencesKnownMatch = m.away_placeholder && 
-            Array.from(categoryMatchNumbers).some(num => 
-              m.away_placeholder?.includes(`Spiel ${num}`)
-            );
-          
+          const homeReferencesKnownMatch = Array.from(categoryMatchNumbers).some(num =>
+            placeholderReferencesMatch(m.home_placeholder, num)
+          );
+          const awayReferencesKnownMatch = Array.from(categoryMatchNumbers).some(num =>
+            placeholderReferencesMatch(m.away_placeholder, num)
+          );
+
           if (homeInCategory || awayInCategory || homePlaceholderInCategory || awayPlaceholderInCategory ||
               homeReferencesKnownMatch || awayReferencesKnownMatch) {
             categoryMatchNumbers.add(m.match_number);
-            return true;
           }
         }
-        return false;
       });
-      
+
       // Second pass: find KO matches that reference other KO matches in this category
       // This handles the chain: semi-final -> final etc.
       let foundMore = true;
@@ -142,15 +150,13 @@ const MatchList = ({ tournamentId, categoryId, isAdmin = false }: MatchListProps
         foundMore = false;
         matchesData.forEach(m => {
           if (m.match_type !== 'group' && !categoryMatchNumbers.has(m.match_number)) {
-            const homeReferencesKnownMatch = m.home_placeholder && 
-              Array.from(categoryMatchNumbers).some(num => 
-                m.home_placeholder?.includes(`Spiel ${num}`)
-              );
-            const awayReferencesKnownMatch = m.away_placeholder && 
-              Array.from(categoryMatchNumbers).some(num => 
-                m.away_placeholder?.includes(`Spiel ${num}`)
-              );
-            
+            const homeReferencesKnownMatch = Array.from(categoryMatchNumbers).some(num =>
+              placeholderReferencesMatch(m.home_placeholder, num)
+            );
+            const awayReferencesKnownMatch = Array.from(categoryMatchNumbers).some(num =>
+              placeholderReferencesMatch(m.away_placeholder, num)
+            );
+
             if (homeReferencesKnownMatch || awayReferencesKnownMatch) {
               categoryMatchNumbers.add(m.match_number);
               foundMore = true;
@@ -158,7 +164,7 @@ const MatchList = ({ tournamentId, categoryId, isAdmin = false }: MatchListProps
           }
         });
       }
-      
+
       // Final filter with all discovered match numbers
       const finalMatches = matchesData.filter(m => categoryMatchNumbers.has(m.match_number));
       setMatches(finalMatches);
