@@ -1,7 +1,8 @@
 import { Button } from "@/components/ui/button";
-import { Trophy, Menu } from "lucide-react";
+import { Menu } from "lucide-react";
 import { useState } from "react";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import Logo from "@/components/Logo";
 
 const Navigation = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -17,12 +18,7 @@ const Navigation = () => {
       <div className="container mx-auto px-4">
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
-          <div className="flex items-center gap-2">
-            <div className="w-10 h-10 rounded-lg bg-gradient-hero flex items-center justify-center">
-              <Trophy className="w-6 h-6 text-primary-foreground" />
-            </div>
-            <span className="text-xl font-bold text-foreground">Grümpi</span>
-          </div>
+          <Logo />
 
           {/* Desktop Navigation */}
           <div className="hidden md:flex items-center gap-8">

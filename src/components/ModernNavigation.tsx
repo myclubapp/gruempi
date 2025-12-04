@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Sun, Moon, User, LogOut } from "lucide-react";
+import Logo from "@/components/Logo";
 import { useTheme } from "next-themes";
 import {
   DropdownMenu,
@@ -47,11 +48,7 @@ const ModernNavigation = () => {
     <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <nav className="container mx-auto flex h-16 items-center justify-between px-4">
         {/* Logo */}
-        <Link to="/" className="flex items-center space-x-2">
-          <span className="text-2xl font-bold bg-gradient-to-r from-primary to-orange-500 bg-clip-text text-transparent">
-            Grümpi
-          </span>
-        </Link>
+        <Logo />
 
         {/* Center Navigation */}
         <div className="hidden md:flex items-center space-x-8">
