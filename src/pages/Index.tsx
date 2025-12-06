@@ -11,22 +11,22 @@ const Index = () => {
       <ModernNavigation />
       <Hero />
       <Features />
-      
+
       {/* Tournament Calendar Section */}
-      <section id="tournaments" className="py-20 px-4 bg-muted/30">
+      <section id="tournaments" className="py-24 px-4 bg-muted/30">
         <div className="container mx-auto">
           <div className="text-center mb-12">
-            <h2 className="text-4xl font-bold text-foreground mb-4">
-              Kommende Grümpelturniere
+            <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4">
+              Kommende Turniere
             </h2>
-            <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-              Entdecke spannende Turniere in deiner Region und melde dein Team an
+            <p className="text-lg text-muted-foreground max-w-xl mx-auto">
+              Entdecke Grümpelturniere in deiner Region
             </p>
           </div>
           <TournamentCalendar />
         </div>
       </section>
-      
+
       <CallToAction />
       <ModernFooter />
     </div>

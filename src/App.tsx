@@ -16,6 +16,7 @@ import PublicTournamentDetail from "./pages/PublicTournamentDetail";
 import PlayerRegistration from "./pages/PlayerRegistration";
 import RegistrationSuccess from "./pages/RegistrationSuccess";
 import Profile from "./pages/Profile";
+import FAQ from "./pages/FAQ";
 import ProtectedRoute from "./components/ProtectedRoute";
 import CustomDomainRouter from "./components/CustomDomainRouter";
 
@@ -36,6 +37,7 @@ const App = () => (
               <Route path="/tournaments/:id" element={<PublicTournamentDetail />} />
               <Route path="/teams/:teamId/register/:token" element={<PlayerRegistration />} />
               <Route path="/tournaments/:teamId/registration-success" element={<RegistrationSuccess />} />
+              <Route path="/faq" element={<FAQ />} />
               <Route
                 path="/dashboard"
                 element={

@@ -1,81 +1,59 @@
-import { Card, CardContent } from "@/components/ui/card";
-import { ClipboardList, CalendarDays, Trophy, BarChart3, Users, CheckCircle } from "lucide-react";
+import { ClipboardList, Calendar, Trophy, Receipt } from "lucide-react";
 
 const Features = () => {
   const features = [
     {
       icon: ClipboardList,
       title: "Team-Anmeldung",
-      description: "Einfache Online-Anmeldung für Teams mit verschiedenen Kategorien und Altersgruppen.",
-      phase: "Vor dem Turnier"
+      description: "Einfache Online-Anmeldung für Teams. Verschiedene Kategorien und automatische Bestätigungen.",
     },
     {
-      icon: CalendarDays,
-      title: "Spielplan erstellen",
-      description: "Automatische Spielplanung mit Pausen, Spieldauer und Platzanzahl.",
-      phase: "Vor dem Turnier"
+      icon: Calendar,
+      title: "Spielplan-Generator",
+      description: "Automatische Erstellung von Gruppenphase und K.O.-Runde mit konfigurierbaren Zeiten.",
     },
     {
       icon: Trophy,
-      title: "Live Resultate",
-      description: "Echtzeit-Updates für Spielstände und Resultate direkt auf allen Geräten.",
-      phase: "Während dem Turnier"
+      title: "Live-Resultate",
+      description: "Echtzeit-Updates für alle Spiele. Automatische Tabellen und Ranglisten.",
     },
     {
-      icon: BarChart3,
-      title: "Tabellen & Ranglisten",
-      description: "Automatische Berechnung von Tabellen, Punkten und Rankings.",
-      phase: "Während dem Turnier"
-    },
-    {
-      icon: Users,
-      title: "Zuschauer-Modus",
-      description: "Öffentliche Ansicht für Zuschauer und Teilnehmende ohne Anmeldung.",
-      phase: "Während dem Turnier"
-    },
-    {
-      icon: CheckCircle,
-      title: "Archivierung",
-      description: "Automatische Archivierung und Statistiken vergangener Turniere.",
-      phase: "Nach dem Turnier"
+      icon: Receipt,
+      title: "QR-Rechnung",
+      description: "Swiss QR-Rechnungen automatisch generieren. Zahlungsstatus immer im Blick.",
     },
   ];
 
   return (
-    <section id="features" className="py-20 px-4 bg-background">
+    <section id="features" className="py-24 px-4 bg-background">
       <div className="container mx-auto">
-        <div className="text-center max-w-3xl mx-auto mb-16">
-          <h2 className="text-4xl md:text-5xl font-bold text-foreground mb-4">
-            Alles für dein Turnier
+        <div className="text-center max-w-2xl mx-auto mb-16">
+          <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4">
+            Alles was du brauchst
           </h2>
-          <p className="text-xl text-muted-foreground">
-            Von der ersten Anmeldung bis zur Siegerehrung – unsere Plattform begleitet dich durch alle Phasen.
+          <p className="text-lg text-muted-foreground">
+            Von der Anmeldung bis zur Siegerehrung – Grümpi macht Turnierorganisation einfach.
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-6xl mx-auto">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-6xl mx-auto">
           {features.map((feature, index) => {
             const Icon = feature.icon;
             return (
-              <Card 
-                key={index} 
-                className="border-border bg-card hover:shadow-elegant transition-all duration-300 hover:-translate-y-1"
+              <div
+                key={index}
+                className="group p-6 rounded-2xl bg-card border border-border hover:border-primary/20 hover:shadow-lg transition-all duration-300"
               >
-                <CardContent className="p-6">
-                  <div className="w-12 h-12 rounded-lg bg-gradient-hero flex items-center justify-center mb-4">
-                    <Icon className="w-6 h-6 text-primary-foreground" />
-                  </div>
-                  <div className="text-xs font-semibold text-primary mb-2 uppercase tracking-wider">
-                    {feature.phase}
-                  </div>
-                  <h3 className="text-xl font-bold text-card-foreground mb-2">
-                    {feature.title}
-                  </h3>
-                  <p className="text-muted-foreground">
-                    {feature.description}
-                  </p>
-                </CardContent>
-              </Card>
+                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-orange-500 to-red-500 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                  <Icon className="w-6 h-6 text-white" />
+                </div>
+                <h3 className="text-lg font-semibold text-card-foreground mb-2">
+                  {feature.title}
+                </h3>
+                <p className="text-muted-foreground text-sm leading-relaxed">
+                  {feature.description}
+                </p>
+              </div>
             );
           })}
         </div>
